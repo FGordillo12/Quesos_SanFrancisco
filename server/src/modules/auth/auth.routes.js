@@ -91,15 +91,11 @@ authRouter.post('/register', sensitiveRateLimit, parseBody(registrationSchema), 
   try {
     await registerUser(req.validatedBody)
     return res.status(201).json({
-      ok: true, data: { message: 'Si el correo es válido, recibirás un enlace para verificarlo.' }, error: null,
+      ok: true, data: { message: 'Cuenta creada. Ya puedes iniciar sesión.' }, error: null,
     })
   } catch (error) {
     if (error.code === 'WEAK_PASSWORD') return sendError(res, 400, error.code, error.message)
     if (error.code === 'REGISTRATION_FAILED') return sendError(res, 409, error.code, error.message)
-    if (error.code === 'EMAIL_NOT_CONFIGURED') {
-      return sendError(res, 503, error.code, 'Configura SMTP en .env para enviar la verificación por correo.')
-    }
-    if (error.status === 503) return sendError(res, 503, 'EMAIL_UNAVAILABLE', 'No se pudo enviar el correo. Revisa la configuración SMTP.')
     return next(error)
   }
 })

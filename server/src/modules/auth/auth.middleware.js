@@ -14,7 +14,7 @@ export async function requireAuth(req, res, next) {
     if (payload.typ !== 'access' || typeof payload.sub !== 'string' || typeof payload.sid !== 'string') return unauthorized(res)
     const session = await RefreshToken.exists({ _id: payload.sid, user: payload.sub, revokedAt: null, expiresAt: { $gt: new Date() } })
     if (!session) return unauthorized(res)
-    const user = await User.findOne({ _id: payload.sub, isActive: true, isEmailVerified: true })
+    const user = await User.findOne({ _id: payload.sub, isActive: true })
     if (!user) return unauthorized(res)
     req.authUser = user
     return next()

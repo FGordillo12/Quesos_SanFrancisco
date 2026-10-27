@@ -76,7 +76,7 @@ driveRouter.get('/oauth/callback', async (req, res) => {
   if (state.typ !== 'google-drive-oauth' || typeof state.sub !== 'string' || state.nonce !== cookieNonce) return finishOAuth(res, 'invalid_state')
 
   try {
-    const admin = await User.findOne({ _id: state.sub, role: 'admin', isActive: true, isEmailVerified: true }).select('_id').lean()
+    const admin = await User.findOne({ _id: state.sub, role: 'admin', isActive: true }).select('_id').lean()
     if (!admin) return finishOAuth(res, 'admin_required')
     if (!env.googleOAuth || typeof req.query.code !== 'string') return finishOAuth(res, 'not_configured')
 

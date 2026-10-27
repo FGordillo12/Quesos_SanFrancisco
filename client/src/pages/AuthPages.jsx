@@ -115,8 +115,8 @@ export function RegisterPage() {
     } catch (error) { setNotice(getError(error, 'No se pudo crear la cuenta. Inténtalo de nuevo.')) }
   })
 
-  if (success) return <AuthLayout title="Revisa tu correo" subtitle="Te enviamos un enlace para verificar la cuenta. El enlace vence en 24 horas.">
-    <Notice>Cuando verifiques tu correo, podrás iniciar sesión.</Notice>
+  if (success) return <AuthLayout title="Cuenta creada" subtitle="Tu cuenta ya está lista para iniciar sesión.">
+    <Notice>Se creó con permisos de vendedor. Un administrador puede cambiar el rol cuando sea necesario.</Notice>
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Volver al inicio de sesión</Link></p>
   </AuthLayout>
 

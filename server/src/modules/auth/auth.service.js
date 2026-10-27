@@ -2,12 +2,11 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { env } from '../../config/env.js'
 import { logger } from '../../lib/logger.js'
-import { AuthBootstrap } from './models/AuthBootstrap.js'
 import { OneTimeToken } from './models/OneTimeToken.js'
 import { RefreshToken } from './models/RefreshToken.js'
 import { User } from './models/User.js'
-import { createOpaqueToken, hashToken, normalizeEmail, passwordPolicyError, publicUser } from './auth.utils.js'
-import { sendPasswordResetEmail, sendVerificationEmail } from './email.service.js'
+import { createOpaqueToken, hashToken, normalizeEmail, passwordPolicyError } from './auth.utils.js'
+import { sendPasswordResetEmail } from './email.service.js'
 
 export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60
 export const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -44,39 +43,6 @@ function createRefreshJwt(userId, ttlSeconds) {
   })
 }
 
-async function reserveFirstUser(candidateId) {
-  try {
-    await AuthBootstrap.updateOne(
-      { _id: 'first-admin' },
-      { $setOnInsert: { userId: candidateId } },
-      { upsert: true },
-    )
-  } catch (error) {
-    if (error.code !== 11000) throw error
-  }
-
-  const state = await AuthBootstrap.findById('first-admin')
-  if (!state || await User.exists({ _id: state.userId })) return
-  await AuthBootstrap.updateOne(
-    { _id: 'first-admin', userId: state.userId },
-    { $set: { userId: candidateId } },
-  )
-}
-
-async function promoteInitialUser(candidateId) {
-  let state = await AuthBootstrap.findById('first-admin')
-  if (state && !await User.exists({ _id: state.userId })) {
-    const updated = await AuthBootstrap.findOneAndUpdate(
-      { _id: 'first-admin', userId: state.userId },
-      { $set: { userId: candidateId } },
-      { new: true },
-    )
-    state = updated ?? await AuthBootstrap.findById('first-admin')
-  }
-  if (!state) return
-  await User.updateOne({ _id: state.userId, role: 'vendedor' }, { $set: { role: 'admin' } })
-}
-
 export async function registerUser({ name, email, password }) {
   const normalizedEmail = normalizeEmail(email)
   const existing = await User.exists({ email: normalizedEmail })
@@ -100,9 +66,8 @@ export async function registerUser({ name, email, password }) {
     passwordHash: await bcrypt.hash(password, PASSWORD_HASH_COST),
     role: 'vendedor',
     isActive: true,
-    isEmailVerified: false,
+    isEmailVerified: true,
   })
-  await reserveFirstUser(user._id)
   try {
     await user.save()
   } catch (error) {
@@ -115,22 +80,7 @@ export async function registerUser({ name, email, password }) {
     throw error
   }
 
-  const token = createRefreshJwt(user._id, ttlSeconds)
-  const tokenRecord = await OneTimeToken.create({
-    user: user._id,
-    kind: 'email_verification',
-    tokenHash: hashToken(token),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-  })
-  try {
-    await sendVerificationEmail(user.email, token)
-  } catch (error) {
-    await OneTimeToken.deleteOne({ _id: tokenRecord._id })
-    await User.deleteOne({ _id: user._id })
-    throw error
-  }
-  await promoteInitialUser(user._id)
-  return { ok: true }
+  return { ok: true, userId: user._id }
 }
 
 export async function verifyEmailToken(token) {
@@ -153,7 +103,7 @@ export async function loginUser({ email, password }) {
   const now = new Date()
   const locked = Boolean(user?.lockUntil && user.lockUntil > now)
 
-  if (!user || locked || !user.isActive || !user.isEmailVerified || !passwordMatches) {
+  if (!user || locked || !user.isActive || !passwordMatches) {
     if (user && !locked && user.isActive && !passwordMatches) {
       if (user.lockUntil && user.lockUntil <= now) {
         await User.updateOne({ _id: user._id, lockUntil: user.lockUntil }, { $set: { failedLoginAttempts: 0, lockUntil: null } })
@@ -208,7 +158,7 @@ export async function rotateRefreshSession(rawToken, req) {
     { new: true },
   )
   if (!oldSession) return null
-  const user = await User.findOne({ _id: oldSession.user, isActive: true, isEmailVerified: true })
+  const user = await User.findOne({ _id: oldSession.user, isActive: true })
   if (!user) return null
   const ttlSeconds = Math.ceil((oldSession.expiresAt.getTime() - now.getTime()) / 1000)
   const token = createRefreshJwt(user._id, ttlSeconds)
@@ -277,4 +227,3 @@ export async function resetPassword({ token, password }) {
   return true
 }
 
-export { publicUser }

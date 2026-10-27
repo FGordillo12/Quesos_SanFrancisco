@@ -18,7 +18,7 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 
 ## Fase 3 — Autenticación
 
-- Registro con bcrypt (costo 12), reglas de contraseña fuerte, verificación de correo de un solo uso y primer usuario con rol `admin`; los siguientes se crean como `vendedor`.
+- Registro abierto con bcrypt (costo 12) y reglas de contraseña fuerte. Toda cuenta nueva inicia activa con rol `vendedor`; no depende de SMTP. El administrador se asigna manualmente en MongoDB hasta implementar el módulo de usuarios y roles.
 - Inicio de sesión con mensajes genéricos, bloqueo de 15 minutos después de cinco intentos erróneos, límite de intentos por IP y opción de sesión extendida.
 - JWT de acceso de 15 minutos y refresh token aleatorio rotativo almacenado solo como hash. Las cookies de sesión usan `httpOnly`, `SameSite=Strict` y `Secure` en producción; cerrar sesión y restablecer la contraseña revocan sesiones.
 - Recuperación de contraseña con enlace de un solo uso válido por 15 minutos. El token nunca se guarda en claro en MongoDB.
@@ -42,7 +42,9 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 
 ## Correo y secretos de autenticación
 
-El `.env` local ya contiene secretos JWT generados aleatoriamente. No los publiques ni los copies a Git. Para habilitar registro, verificación y restablecimiento, completa en `.env` `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` y `SMTP_FROM`. Los campos SMTP se dejan vacíos en `.env.example` y deben configurarse juntos. Sin SMTP, el registro no crea la cuenta y la recuperación mantiene una respuesta genérica.
+El `.env` local contiene secretos JWT generados aleatoriamente. No los publiques ni los copies a Git. SMTP solo es necesario para enviar enlaces de restablecimiento de contraseña; el alta abierta no envía correos. Si no se configura SMTP, la recuperación mantiene una respuesta genérica.
+
+Para asignar el primer administrador manualmente, registra la cuenta y actualiza su documento en `users` desde MongoDB Atlas Data Explorer o Compass, por ejemplo: `db.users.updateOne({ email: "correo@empresa.com" }, { $set: { role: "admin" } })`. Las cuentas públicas siempre se crean como `vendedor`.
 
 Para Google Drive en una unidad compartida, configura `GOOGLE_DRIVE_CLIENT_EMAIL` y `GOOGLE_DRIVE_PRIVATE_KEY`, y agrega la cuenta de servicio como editora. Las cuentas de servicio no tienen cuota propia y no pueden ser propietarias de archivos; para guardar en Mi unidad personal, configura OAuth con `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` y `GOOGLE_OAUTH_REDIRECT_URI`, además de `GOOGLE_PICKER_API_KEY` y `GOOGLE_PICKER_APP_ID`. Activa Drive API y Google Picker API, registra la URI de retorno exacta del `.env`, y restringe la API key al origen de tu cliente y a Google Picker API. Conecta la cuenta desde Empresa e impresión y selecciona la carpeta en el selector. La aplicación pide acceso `drive.file` a los archivos seleccionados; el token de renovación se cifra en MongoDB.
 
@@ -75,7 +77,7 @@ Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refre
 | `MONGODB_URI` | Cadena de conexión a MongoDB | `mongodb://127.0.0.1:27017/quesos_san_francisco` |
 | `TRUST_PROXY_HOPS` | Número de proxies confiables delante de la API | `0` en local; configurar según el despliegue en producción |
 | `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET` | Secretos JWT independientes de 32+ caracteres | Generar uno distinto para cada variable |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Transporte de correo para enlaces de verificación y recuperación | Configurar todos juntos |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Transporte opcional para recuperación de contraseña | Configurar todos juntos |
 | `GOOGLE_DRIVE_CLIENT_EMAIL`, `GOOGLE_DRIVE_PRIVATE_KEY`, `GOOGLE_DRIVE_FOLDER_ID` | Cuenta de servicio para una unidad compartida | Credenciales de servicio juntas; folder ID es opcional si se usa OAuth |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` | Credenciales OAuth para conectar una unidad personal | ID y secreto juntos; el retorno local por defecto es `http://localhost:4000/api/drive/oauth/callback` |
 | `GOOGLE_PICKER_API_KEY`, `GOOGLE_PICKER_APP_ID` | Permiten seleccionar la carpeta con el acceso limitado `drive.file` | API key y número de proyecto juntos |
