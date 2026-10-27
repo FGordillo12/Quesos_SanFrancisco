@@ -44,7 +44,7 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 
 El `.env` local ya contiene secretos JWT generados aleatoriamente. No los publiques ni los copies a Git. Para habilitar registro, verificación y restablecimiento, completa en `.env` `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` y `SMTP_FROM`. Los campos SMTP se dejan vacíos en `.env.example` y deben configurarse juntos. Sin SMTP, el registro no crea la cuenta y la recuperación mantiene una respuesta genérica.
 
-Para Google Drive, configura `GOOGLE_DRIVE_CLIENT_EMAIL`, `GOOGLE_DRIVE_PRIVATE_KEY` y `GOOGLE_DRIVE_FOLDER_ID` en `.env`. Activa Google Drive API en el proyecto de Google Cloud, crea una cuenta de servicio y comparte con su correo una carpeta de Drive con permiso de editor (o agrégala a una unidad compartida). La clave privada va en una sola línea con `\n` en lugar de saltos de línea. Los tres campos deben configurarse juntos; si quedan vacíos, la aplicación funciona y muestra que Drive no está configurado.
+Para Google Drive en una unidad compartida, configura `GOOGLE_DRIVE_CLIENT_EMAIL` y `GOOGLE_DRIVE_PRIVATE_KEY`, y agrega la cuenta de servicio como editora. Las cuentas de servicio no tienen cuota propia y no pueden ser propietarias de archivos; para guardar en Mi unidad personal, configura OAuth con `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` y `GOOGLE_OAUTH_REDIRECT_URI`, además de `GOOGLE_PICKER_API_KEY` y `GOOGLE_PICKER_APP_ID`. Activa Drive API y Google Picker API, registra la URI de retorno exacta del `.env`, y restringe la API key al origen de tu cliente y a Google Picker API. Conecta la cuenta desde Empresa e impresión y selecciona la carpeta en el selector. La aplicación pide acceso `drive.file` a los archivos seleccionados; el token de renovación se cifra en MongoDB.
 
 Al preparar otro entorno, genera valores independientes para `ACCESS_TOKEN_SECRET` y `REFRESH_TOKEN_SECRET` (mínimo 32 caracteres aleatorios cada uno). En producción, configura cookies HTTPS a través de un proxy confiable.
 
@@ -76,7 +76,9 @@ Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refre
 | `TRUST_PROXY_HOPS` | Número de proxies confiables delante de la API | `0` en local; configurar según el despliegue en producción |
 | `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET` | Secretos JWT independientes de 32+ caracteres | Generar uno distinto para cada variable |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Transporte de correo para enlaces de verificación y recuperación | Configurar todos juntos |
-| `GOOGLE_DRIVE_CLIENT_EMAIL`, `GOOGLE_DRIVE_PRIVATE_KEY`, `GOOGLE_DRIVE_FOLDER_ID` | Cuenta de servicio y carpeta de destino para guardar PDF | Opcionales; configurar todos juntos |
+| `GOOGLE_DRIVE_CLIENT_EMAIL`, `GOOGLE_DRIVE_PRIVATE_KEY`, `GOOGLE_DRIVE_FOLDER_ID` | Cuenta de servicio para una unidad compartida | Credenciales de servicio juntas; folder ID es opcional si se usa OAuth |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` | Credenciales OAuth para conectar una unidad personal | ID y secreto juntos; el retorno local por defecto es `http://localhost:4000/api/drive/oauth/callback` |
+| `GOOGLE_PICKER_API_KEY`, `GOOGLE_PICKER_APP_ID` | Permiten seleccionar la carpeta con el acceso limitado `drive.file` | API key y número de proyecto juntos |
 
 Para producción, use `mongodb+srv://` o `tls=true` en la URI, configure el proxy HTTPS y establezca `TRUST_PROXY_HOPS` al número real de saltos confiables. Las transacciones de precios requieren una instancia MongoDB replica set (MongoDB Atlas cumple este requisito). No exponga la API directamente con `trust proxy` habilitado si no controla ese proxy.
 
@@ -91,4 +93,4 @@ npm run audit
 
 La Fase 6 genera PDF en carta o térmica de 80/58 mm, con datos de empresa y perfil configurable desde Empresa e impresión. Para la GOOJPRT PT-210, el PDF térmico de 58 mm centra el contenido en los 48 mm imprimibles. El perfil de impresión queda congelado al guardar cada cotización.
 
-La Fase 7 permite guardar bajo demanda el PDF de una cotización en la carpeta configurada de Google Drive. La aplicación conserva el ID y enlace del archivo para evitar subidas repetidas. Dashboard, auditoría, seed y ampliación de pruebas quedan para fases posteriores.
+La Fase 7 guarda automáticamente el PDF de una cotización nueva en la carpeta seleccionada de Google Drive. Usa una cuenta de servicio para unidades compartidas o OAuth `drive.file` y Google Picker para Mi unidad personal. La aplicación conserva el ID y enlace del archivo para evitar subidas repetidas. Dashboard, auditoría, seed y ampliación de pruebas quedan para fases posteriores.

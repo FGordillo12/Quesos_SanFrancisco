@@ -18,6 +18,11 @@ const schema = z.object({
   GOOGLE_DRIVE_CLIENT_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
   GOOGLE_DRIVE_PRIVATE_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(100).optional()),
   GOOGLE_DRIVE_FOLDER_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().min(5).max(200).optional()),
+  GOOGLE_OAUTH_CLIENT_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().min(10).optional()),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.preprocess((value) => value === '' ? undefined : value, z.string().min(10).optional()),
+  GOOGLE_OAUTH_REDIRECT_URI: z.preprocess((value) => value === '' ? undefined : value, z.url().optional()),
+  GOOGLE_PICKER_API_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(10).optional()),
+  GOOGLE_PICKER_APP_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^\d+$/).optional()),
 })
 
 const result = schema.safeParse(process.env)
@@ -31,9 +36,17 @@ const smtpFields = [parsed.SMTP_HOST, parsed.SMTP_PORT, parsed.SMTP_USER, parsed
 if (smtpFields.some(Boolean) && smtpFields.some((value) => !value)) {
   throw new Error('Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS y SMTP_FROM juntos.')
 }
-const driveFields = [parsed.GOOGLE_DRIVE_CLIENT_EMAIL, parsed.GOOGLE_DRIVE_PRIVATE_KEY, parsed.GOOGLE_DRIVE_FOLDER_ID]
-if (driveFields.some(Boolean) && driveFields.some((value) => !value)) {
-  throw new Error('Configure GOOGLE_DRIVE_CLIENT_EMAIL, GOOGLE_DRIVE_PRIVATE_KEY y GOOGLE_DRIVE_FOLDER_ID juntos.')
+const driveServiceFields = [parsed.GOOGLE_DRIVE_CLIENT_EMAIL, parsed.GOOGLE_DRIVE_PRIVATE_KEY]
+if (driveServiceFields.some(Boolean) && driveServiceFields.some((value) => !value)) {
+  throw new Error('Configure GOOGLE_DRIVE_CLIENT_EMAIL y GOOGLE_DRIVE_PRIVATE_KEY juntos.')
+}
+const oauthFields = [parsed.GOOGLE_OAUTH_CLIENT_ID, parsed.GOOGLE_OAUTH_CLIENT_SECRET]
+if (oauthFields.some(Boolean) && oauthFields.some((value) => !value)) {
+  throw new Error('Configure GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET juntos.')
+}
+const pickerFields = [parsed.GOOGLE_PICKER_API_KEY, parsed.GOOGLE_PICKER_APP_ID]
+if (pickerFields.some(Boolean) && pickerFields.some((value) => !value)) {
+  throw new Error('Configure GOOGLE_PICKER_API_KEY y GOOGLE_PICKER_APP_ID juntos.')
 }
 const clientOrigin = new URL(parsed.CLIENT_URL).origin
 if (parsed.NODE_ENV === 'production') {
@@ -59,9 +72,16 @@ export const env = Object.freeze({
     pass: parsed.SMTP_PASS,
     from: parsed.SMTP_FROM,
   }) : null,
-  googleDrive: parsed.GOOGLE_DRIVE_CLIENT_EMAIL ? Object.freeze({
+  googleDriveServiceAccount: parsed.GOOGLE_DRIVE_CLIENT_EMAIL ? Object.freeze({
     clientEmail: parsed.GOOGLE_DRIVE_CLIENT_EMAIL,
     privateKey: parsed.GOOGLE_DRIVE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    folderId: parsed.GOOGLE_DRIVE_FOLDER_ID,
+  }) : null,
+  googleDriveFolderId: parsed.GOOGLE_DRIVE_FOLDER_ID || null,
+  googleOAuth: parsed.GOOGLE_OAUTH_CLIENT_ID ? Object.freeze({
+    clientId: parsed.GOOGLE_OAUTH_CLIENT_ID,
+    clientSecret: parsed.GOOGLE_OAUTH_CLIENT_SECRET,
+    redirectUri: parsed.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/drive/oauth/callback',
+    pickerApiKey: parsed.GOOGLE_PICKER_API_KEY || null,
+    pickerAppId: parsed.GOOGLE_PICKER_APP_ID || null,
   }) : null,
 })

@@ -27,11 +27,17 @@ function parseSettings(req, res, next) {
   return next()
 }
 
+function publicSettings(document) {
+  const data = document.toObject ? document.toObject() : { ...document }
+  delete data.driveOAuth
+  return data
+}
+
 settingsRouter.use(requireAuth)
 settingsRouter.get('/company', async (req, res, next) => {
   try {
     const data = await getOrCreateCompanySettings()
-    return res.json({ ok: true, data, error: null })
+    return res.json({ ok: true, data: publicSettings(data), error: null })
   } catch (error) { return next(error) }
 })
 
@@ -42,6 +48,6 @@ settingsRouter.put('/company', requireRole('admin'), parseSettings, async (req, 
       { $set: { ...req.settingsInput, updatedBy: req.authUser._id } },
       { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
     )
-    return res.json({ ok: true, data, error: null })
+    return res.json({ ok: true, data: publicSettings(data), error: null })
   } catch (error) { return next(error) }
 })

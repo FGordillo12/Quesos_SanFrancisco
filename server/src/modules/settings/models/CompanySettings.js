@@ -7,6 +7,16 @@ const printProfileSchema = new mongoose.Schema({
   showLogo: { type: Boolean, default: true, required: true },
 }, { _id: false, strict: 'throw' })
 
+const driveOAuthSchema = new mongoose.Schema({
+  refreshTokenCiphertext: { type: String, required: true, maxlength: 4000 },
+  iv: { type: String, required: true, maxlength: 100 },
+  authTag: { type: String, required: true, maxlength: 100 },
+  accountEmail: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
+  folderId: { type: String, trim: true, maxlength: 200, default: '' },
+  folderName: { type: String, trim: true, maxlength: 200, default: '' },
+  linkedAt: { type: Date, required: true },
+}, { _id: false, strict: 'throw' })
+
 const companySettingsSchema = new mongoose.Schema({
   _id: { type: String, default: 'company' },
   name: { type: String, required: true, trim: true, maxlength: 120, default: 'Quesos San Francisco' },
@@ -16,6 +26,7 @@ const companySettingsSchema = new mongoose.Schema({
   email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
   representative: { type: String, trim: true, maxlength: 120, default: '' },
   printProfile: { type: printProfileSchema, required: true, default: () => ({}) },
+  driveOAuth: { type: driveOAuthSchema, default: null },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true, strict: 'throw' })
 

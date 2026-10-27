@@ -158,9 +158,20 @@ export function QuotePage() {
     }
     try {
       const { data } = await api.post('/quotes', payload)
-      setSavedQuote(data.data)
-      setMessage(`Cotización ${data.data.number} guardada.`)
+      const quote = data.data
+      setSavedQuote(quote)
+      setMessage(`Cotización ${quote.number} guardada. Guardando PDF en Google Drive…`)
       setItems([])
+      setDriveBusy(true)
+      try {
+        const upload = await api.post(`/quotes/${quote._id}/drive`)
+        const updatedQuote = { ...quote, driveFile: upload.data.data.driveFile }
+        setSavedQuote(updatedQuote)
+        setMessage(`Cotización ${quote.number} guardada y PDF enviado a Google Drive.`)
+      } catch (driveError) {
+        setError(driveError.response?.data?.error?.message || 'La cotización se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.')
+        setMessage(`Cotización ${quote.number} guardada.`)
+      } finally { setDriveBusy(false) }
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'No se pudo guardar la cotización.')
     } finally { setSaving(false) }
@@ -196,6 +207,7 @@ export function QuotePage() {
     try {
       const { data } = await api.post(`/quotes/${savedQuote._id}/drive`)
       setSavedQuote((current) => ({ ...current, driveFile: data.data.driveFile }))
+      setMessage('PDF guardado en Google Drive.')
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'No se pudo guardar el PDF en Google Drive.')
     } finally { setDriveBusy(false) }
