@@ -7,6 +7,7 @@ const schema = z.object({
   CLIENT_URL: z.url().default('http://localhost:5173'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI es obligatoria.'),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+  
 })
 
 const result = schema.safeParse(process.env)
