@@ -1,0 +1,13 @@
+{
+  "name": "Quesos San Francisco",
+  "short_name": "Quesos SF",
+  "description": "Cotizador de Quesos San Francisco, Ubaté.",
+  "lang": "es-CO",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#E5FFFB",
+  "theme_color": "#E5FFFB",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "640x640", "type": "image/png", "purpose": "any" }
+  ]
+}
