@@ -38,6 +38,11 @@ const quoteSchema = new mongoose.Schema({
   notes: { type: String, trim: true, maxlength: 1000, default: '' },
   printProfile: { type: printProfileSnapshotSchema, default: null },
   pdfFileName: { type: String, maxlength: 100, default: '' },
+  driveFile: {
+    id: { type: String, maxlength: 200, default: '' },
+    webViewLink: { type: String, maxlength: 1000, default: '' },
+    uploadedAt: { type: Date, default: null },
+  },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 }, { timestamps: true, strict: 'throw' })
 

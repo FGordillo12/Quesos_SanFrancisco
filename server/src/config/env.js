@@ -15,6 +15,9 @@ const schema = z.object({
   SMTP_USER: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
   SMTP_PASS: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
   SMTP_FROM: z.preprocess((value) => value === '' ? undefined : value, z.string().min(3).optional()),
+  GOOGLE_DRIVE_CLIENT_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
+  GOOGLE_DRIVE_PRIVATE_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(100).optional()),
+  GOOGLE_DRIVE_FOLDER_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().min(5).max(200).optional()),
 })
 
 const result = schema.safeParse(process.env)
@@ -27,6 +30,10 @@ const parsed = result.data
 const smtpFields = [parsed.SMTP_HOST, parsed.SMTP_PORT, parsed.SMTP_USER, parsed.SMTP_PASS, parsed.SMTP_FROM]
 if (smtpFields.some(Boolean) && smtpFields.some((value) => !value)) {
   throw new Error('Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS y SMTP_FROM juntos.')
+}
+const driveFields = [parsed.GOOGLE_DRIVE_CLIENT_EMAIL, parsed.GOOGLE_DRIVE_PRIVATE_KEY, parsed.GOOGLE_DRIVE_FOLDER_ID]
+if (driveFields.some(Boolean) && driveFields.some((value) => !value)) {
+  throw new Error('Configure GOOGLE_DRIVE_CLIENT_EMAIL, GOOGLE_DRIVE_PRIVATE_KEY y GOOGLE_DRIVE_FOLDER_ID juntos.')
 }
 const clientOrigin = new URL(parsed.CLIENT_URL).origin
 if (parsed.NODE_ENV === 'production') {
@@ -51,5 +58,10 @@ export const env = Object.freeze({
     user: parsed.SMTP_USER,
     pass: parsed.SMTP_PASS,
     from: parsed.SMTP_FROM,
+  }) : null,
+  googleDrive: parsed.GOOGLE_DRIVE_CLIENT_EMAIL ? Object.freeze({
+    clientEmail: parsed.GOOGLE_DRIVE_CLIENT_EMAIL,
+    privateKey: parsed.GOOGLE_DRIVE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    folderId: parsed.GOOGLE_DRIVE_FOLDER_ID,
   }) : null,
 })

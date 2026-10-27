@@ -57,6 +57,7 @@ export function QuotePage() {
   const [loadingPrices, setLoadingPrices] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [driveBusy, setDriveBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [savedQuote, setSavedQuote] = useState(null)
@@ -189,6 +190,17 @@ export function QuotePage() {
     } finally { setPdfBusy(false) }
   }
 
+  async function savePdfToDrive() {
+    setError('')
+    setDriveBusy(true)
+    try {
+      const { data } = await api.post(`/quotes/${savedQuote._id}/drive`)
+      setSavedQuote((current) => ({ ...current, driveFile: data.data.driveFile }))
+    } catch (requestError) {
+      setError(requestError.response?.data?.error?.message || 'No se pudo guardar el PDF en Google Drive.')
+    } finally { setDriveBusy(false) }
+  }
+
   function startNewQuote() {
     setSavedQuote(null)
     setItems([])
@@ -217,6 +229,7 @@ export function QuotePage() {
         <button type="button" onClick={() => openQuotePdf(false)} disabled={pdfBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand hover:bg-primary disabled:opacity-50">{pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
         <button type="button" onClick={() => openQuotePdf(true)} disabled={pdfBusy} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">Imprimir</button>
       </div>
+      {savedQuote.driveFile?.id ? <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a> : <button type="button" onClick={savePdfToDrive} disabled={driveBusy} className="mt-3 w-full rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{driveBusy ? 'Guardando en Google Drive…' : 'Guardar PDF en Google Drive'}</button>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Nueva cotización</button>
     </section>
   </main>

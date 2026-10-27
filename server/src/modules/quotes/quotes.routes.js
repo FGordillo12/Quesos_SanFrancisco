@@ -4,6 +4,8 @@ import { requireAuth } from '../auth/auth.middleware.js'
 import { createQuote, getQuote, listQuotes } from './quotes.service.js'
 import { generateQuotePdf } from './pdf.service.js'
 import { getOrCreateCompanySettings } from '../settings/settings.service.js'
+import { Quote } from './models/Quote.js'
+import { uploadQuotePdf } from './drive.service.js'
 
 export const quotesRouter = Router()
 const objectId = z.string().regex(/^[a-f\d]{24}$/i)
@@ -96,4 +98,22 @@ quotesRouter.get('/:id/pdf', parse(idParams, 'params'), async (req, res, next) =
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="${filename}"`, 'Cache-Control': 'no-store', 'Content-Length': String(pdf.length) })
     return res.send(pdf)
   } catch (error) { return next(error) }
+})
+
+quotesRouter.post('/:id/drive', parse(idParams, 'params'), async (req, res, next) => {
+  try {
+    const quote = await getQuote({ id: req.quoteInput.id, user: req.authUser })
+    if (!quote) return sendError(res, 404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada.')
+    if (quote.driveFile?.id) return res.json({ ok: true, data: { driveFile: quote.driveFile }, error: null })
+    const settings = await getOrCreateCompanySettings()
+    const pdf = await generateQuotePdf(quote, settings, quote.printProfile || settings.printProfile)
+    const driveFile = await uploadQuotePdf({ quote, pdf })
+    const uploadedAt = new Date()
+    await Quote.updateOne({ _id: quote._id, 'driveFile.id': { $in: ['', null] } }, { $set: { driveFile: { ...driveFile, uploadedAt } } })
+    const saved = await Quote.findById(quote._id).select('driveFile').lean()
+    return res.status(201).json({ ok: true, data: { driveFile: saved.driveFile }, error: null })
+  } catch (error) {
+    if (error.status) return sendError(res, error.status, error.code || 'DRIVE_ERROR', error.message)
+    return next(error)
+  }
 })
