@@ -30,7 +30,15 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 - CRUD autenticado de quesos y almacenes; solo `admin` puede crear, editar o desactivar. Las bajas son lógicas para conservar referencias.
 - Matriz de tarifas particulares por queso y almacén, y una tarifa general por queso para facturas de almacenes nuevos. El vendedor consulta, pero no cambia precios.
 - Cambios de precios en lote dentro de una transacción MongoDB, con historial de valor anterior/nuevo, usuario y fecha.
-- El futuro cotizador será una sola pantalla: seleccionará un almacén registrado o permitirá ingresar los datos de un almacén nuevo sin guardarlo en el catálogo. Para el segundo caso usará la tarifa general; nunca pedirá al vendedor que escriba el precio del queso.
+- El cotizador tiene una sola pantalla: selecciona un almacén registrado o permite ingresar los datos de uno nuevo sin guardarlo en el catálogo. Para el segundo caso usa la tarifa general; nunca pide al vendedor que escriba el precio del queso.
+
+## Fase 5 — Cotizador
+
+- Una sola pantalla ofrece ambas opciones de destino: almacén registrado (tarifa particular) o almacén nuevo (snapshot solo en la cotización y tarifa general).
+- El vendedor agrega queso y cantidad; solo se muestran precios ya configurados. Las cantidades de kg admiten hasta tres decimales y las unidades deben ser enteras.
+- La API consulta el catálogo y recalcula precios, subtotales y total usando aritmética entera; no acepta precios ni totales del navegador.
+- El consecutivo `QSF-000001` se asigna con contador atómico dentro de una transacción MongoDB. La cotización congela nombre, unidad, precio y subtotal de cada línea.
+- Vendedores solo consultan sus cotizaciones; administración puede consultar todas.
 
 ## Correo y secretos de autenticación
 
@@ -51,7 +59,7 @@ Al preparar otro entorno, genera valores independientes para `ACCESS_TOKEN_SECRE
 4. Ejecute `npm run dev` para iniciar cliente y API. El cliente usa el puerto 5173 y la API el 4000.
 5. Consulte `http://localhost:4000/api/health`; la respuesta debe indicar `ready`.
 
-Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. El catálogo usa `/api/stores`, `/api/cheeses` y `/api/prices` (incluye `/general` e `/history`). Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
+Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. El catálogo usa `/api/stores`, `/api/cheeses` y `/api/prices` (incluye `/general` e `/history`). El cotizador usa `POST /api/quotes`, `GET /api/quotes` y `GET /api/quotes/:id`. Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
 
 `client/.env.example` documenta `VITE_API_URL`, reservado para la integración del frontend en una fase posterior.
 
@@ -78,4 +86,4 @@ npm start
 npm run audit
 ```
 
-Las fases siguientes agregarán almacenes, quesos y precios; cotizaciones; PDF; Drive; dashboard; auditoría y seed.
+Las fases siguientes agregarán generación de PDF, Drive, dashboard, auditoría, seed y pruebas de seguridad.

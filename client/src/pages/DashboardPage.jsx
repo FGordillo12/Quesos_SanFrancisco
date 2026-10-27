@@ -21,6 +21,7 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <nav aria-label="Módulos" className="hidden flex-wrap gap-1 md:flex">
+            <Link className="rounded-lg bg-brand px-3 py-2 text-sm font-bold text-white hover:bg-brand-dark" to="/quote">Nueva cotización</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Quesos</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
@@ -32,6 +33,7 @@ export function DashboardPage() {
         <p className="text-sm font-semibold capitalize text-brand">{date}</p>
         <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Hola, {user?.name}</h1>
         <p className="mt-2 text-slate-600">Tu cuenta está lista para trabajar.</p>
+        <Link to="/quote" className="mt-6 inline-flex rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm hover:bg-brand-dark">Nueva cotización</Link>
         <div className="mt-8 rounded-2xl border border-white bg-white/80 p-6 shadow-card sm:p-8">
           <p className="text-sm font-bold uppercase tracking-wider text-brand">Acceso</p>
           <p className="mt-2 text-lg font-bold">{user?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
@@ -39,6 +41,7 @@ export function DashboardPage() {
           <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-600">La sesión está protegida con cookies seguras, renovación automática y expiración controlada. Administra el catálogo y las tarifas desde estos accesos.</p>
         </div>
         <nav aria-label="Accesos a gestión" className="mt-5 grid gap-3 sm:grid-cols-3 md:hidden">
+          <Link className="rounded-xl bg-brand p-4 text-center font-bold text-white shadow-card sm:col-span-3" to="/quote">Nueva cotización</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Quesos</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>

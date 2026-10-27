@@ -10,6 +10,7 @@ import {
 } from './pages/AuthPages'
 import { DashboardPage } from './pages/DashboardPage'
 import { CheesesPage, PricesPage, StoresPage } from './pages/CatalogPages'
+import { QuotePage } from './pages/QuotePage'
 
 function SignedInRedirect({ children }) {
   const { user, loading } = useAuth()
@@ -29,6 +30,7 @@ function AppRoutes() {
       <Route path="/stores" element={<StoresPage />} />
       <Route path="/cheeses" element={<CheesesPage />} />
       <Route path="/prices" element={<PricesPage />} />
+      <Route path="/quote" element={<QuotePage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
