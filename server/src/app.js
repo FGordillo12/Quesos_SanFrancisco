@@ -16,6 +16,7 @@ import {
 import { authRouter } from './modules/auth/auth.routes.js'
 import { cheeseRouter, priceRouter, storeRouter } from './modules/catalog/catalog.routes.js'
 import { quotesRouter } from './modules/quotes/quotes.routes.js'
+import { settingsRouter } from './modules/settings/settings.routes.js'
 
 export function createApp() {
   const app = express()
@@ -54,6 +55,7 @@ export function createApp() {
   app.use('/api/stores', storeRouter)
   app.use('/api/prices', priceRouter)
   app.use('/api/quotes', quotesRouter)
+  app.use('/api/settings', settingsRouter)
   app.use('/api', notFoundHandler)
   app.use(errorHandler)
   return app

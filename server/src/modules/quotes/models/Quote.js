@@ -22,6 +22,13 @@ const quoteItemSchema = new mongoose.Schema({
   lineTotal: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
 }, { _id: false, strict: 'throw' })
 
+const printProfileSnapshotSchema = new mongoose.Schema({
+  format: { type: String, enum: ['letter', 'thermal80', 'thermal58'], required: true },
+  marginMm: { type: Number, min: 0, max: 25, required: true },
+  fontSize: { type: Number, min: 8, max: 14, required: true },
+  showLogo: { type: Boolean, required: true },
+}, { _id: false, strict: 'throw' })
+
 const quoteSchema = new mongoose.Schema({
   number: { type: String, required: true, immutable: true },
   date: { type: Date, required: true, default: Date.now },
@@ -29,6 +36,8 @@ const quoteSchema = new mongoose.Schema({
   items: { type: [quoteItemSchema], required: true, validate: [(items) => items.length > 0 && items.length <= 50, 'La cotización debe tener entre 1 y 50 productos.'] },
   total: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
   notes: { type: String, trim: true, maxlength: 1000, default: '' },
+  printProfile: { type: printProfileSnapshotSchema, default: null },
+  pdfFileName: { type: String, maxlength: 100, default: '' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 }, { timestamps: true, strict: 'throw' })
 

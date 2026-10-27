@@ -59,7 +59,7 @@ Al preparar otro entorno, genera valores independientes para `ACCESS_TOKEN_SECRE
 4. Ejecute `npm run dev` para iniciar cliente y API. El cliente usa el puerto 5173 y la API el 4000.
 5. Consulte `http://localhost:4000/api/health`; la respuesta debe indicar `ready`.
 
-Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. El catálogo usa `/api/stores`, `/api/cheeses` y `/api/prices` (incluye `/general` e `/history`). El cotizador usa `POST /api/quotes`, `GET /api/quotes` y `GET /api/quotes/:id`. Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
+Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. El catálogo usa `/api/stores`, `/api/cheeses` y `/api/prices` (incluye `/general` e `/history`). El cotizador usa `POST /api/quotes`, `GET /api/quotes`, `GET /api/quotes/:id` y `GET /api/quotes/:id/pdf`. La configuración de empresa usa `GET` y `PUT /api/settings/company` (edición solo para administrador). Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
 
 `client/.env.example` documenta `VITE_API_URL`, reservado para la integración del frontend en una fase posterior.
 
@@ -86,4 +86,4 @@ npm start
 npm run audit
 ```
 
-Las fases siguientes agregarán generación de PDF, Drive, dashboard, auditoría, seed y pruebas de seguridad.
+La Fase 6 genera PDF en carta o térmica de 80/58 mm, con datos de empresa y perfil configurable desde Empresa e impresión. El perfil de impresión queda congelado al guardar cada cotización; el administrador puede cambiarlo para las cotizaciones nuevas. Drive, dashboard, auditoría, seed y ampliación de pruebas quedan para fases posteriores.

@@ -4,6 +4,7 @@ import { Price } from '../catalog/models/Price.js'
 import { Store } from '../catalog/models/Store.js'
 import { Counter } from './models/Counter.js'
 import { Quote } from './models/Quote.js'
+import { getOrCreateCompanySettings } from '../settings/settings.service.js'
 
 const MAX_QUANTITY_MILLI = 1_000_000_000
 
@@ -102,6 +103,8 @@ export async function createQuote({ input, userId }) {
   const totalBig = items.reduce((total, item) => total + BigInt(item.lineTotal), 0n)
   if (totalBig > BigInt(Number.MAX_SAFE_INTEGER)) fail(400, 'TOTAL_TOO_LARGE', 'El total supera el rango permitido.')
   const total = Number(totalBig)
+  const settings = await getOrCreateCompanySettings()
+  const printProfile = settings.printProfile.toObject ? settings.printProfile.toObject() : settings.printProfile
 
   const session = await mongoose.startSession()
   let quote
@@ -120,6 +123,8 @@ export async function createQuote({ input, userId }) {
         items,
         total,
         notes: input.notes || '',
+        printProfile,
+        pdfFileName: `${number}.pdf`,
         createdBy: userId,
       }], { session })
       quote = documents[0]

@@ -1,0 +1,247 @@
+import PDFDocument from 'pdfkit'
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+const NAVY = '#0B1233'
+const BRAND = '#0077B6'
+const PALE = '#E5FFFB'
+const MUTED = '#526078'
+const LOGO_PATH = fileURLToPath(new URL('../../../assets/logo.png', import.meta.url))
+const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+const dateFormatter = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'America/Bogota' })
+const mmToPt = (mm) => mm * 72 / 25.4
+
+function normalizedProfile(profile = {}) {
+  return {
+    format: ['letter', 'thermal80', 'thermal58'].includes(profile.format) ? profile.format : 'letter',
+    marginMm: Number.isFinite(profile.marginMm) ? Math.min(25, Math.max(0, profile.marginMm)) : 10,
+    fontSize: Number.isFinite(profile.fontSize) ? Math.min(14, Math.max(8, profile.fontSize)) : 9,
+    showLogo: profile.showLogo !== false,
+  }
+}
+
+function nonEmpty(parts) { return parts.filter((value) => typeof value === 'string' && value.trim()) }
+
+function thermalHeight(quote) {
+  const noteLength = String(quote.notes || '').length
+  return Math.min(20_000, 520 + quote.items.length * 84 + Math.ceil(noteLength / 30) * 14)
+}
+
+function renderThermal(doc, quote, company, profile) {
+  const widthMm = profile.format === 'thermal58' ? 58 : 80
+  const pageWidth = mmToPt(widthMm)
+  const margin = mmToPt(profile.marginMm)
+  // PT-210: 58 mm roll, 48 mm (136.1 pt / 384 px at 203 dpi) printable area.
+  // Center that area on the paper and keep artwork within its 48 mm width.
+  const contentWidth = profile.format === 'thermal58' ? mmToPt(48) : pageWidth - margin * 2
+  const contentX = profile.format === 'thermal58' ? mmToPt(5) : margin
+  const baseSize = Math.min(profile.fontSize, widthMm === 58 ? 10 : 12)
+  let y = margin
+
+  if (profile.showLogo && existsSync(LOGO_PATH)) {
+    const logoSize = widthMm === 58 ? mmToPt(30) : 44
+    doc.image(LOGO_PATH, contentX + (contentWidth - logoSize) / 2, y, { fit: [logoSize, logoSize] })
+    y += logoSize + 7
+  }
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 2).text(company.name, contentX, y, { width: contentWidth, align: 'center' })
+  y = doc.y + 3
+  for (const line of nonEmpty([company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
+    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth, align: 'center' })
+    y = doc.y + 2
+  }
+  y += 8
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()
+  y += 9
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 1).text('COTIZACIÓN', contentX, y, { width: contentWidth, align: 'center' })
+  y = doc.y + 5
+  doc.font('Helvetica-Bold').fontSize(baseSize).text(quote.number, contentX, y, { width: contentWidth, align: 'center' })
+  y = doc.y + 3
+  doc.font('Helvetica').fontSize(baseSize - 1).fillColor(MUTED).text(dateFormatter.format(new Date(quote.date)), contentX, y, { width: contentWidth, align: 'center' })
+  y = doc.y + 8
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  y += 8
+
+  for (const line of nonEmpty([
+    `Almacén: ${quote.store.name}`,
+    quote.store.nit && `NIT/CC: ${quote.store.nit}`,
+    quote.store.address,
+    quote.store.city,
+    quote.store.phone && `Tel. ${quote.store.phone}`,
+    quote.store.contactName && `Contacto: ${quote.store.contactName}`,
+  ])) {
+    doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth })
+    y = doc.y + 2
+  }
+  y += 6
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  y += 8
+
+  for (const item of quote.items) {
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text(item.cheeseName, contentX, y, { width: contentWidth })
+    y = doc.y + 2
+    const detail = `${item.quantity} ${item.unit} × ${cop.format(item.unitPrice)} / ${item.unit}`
+    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(detail, contentX, y, { width: contentWidth })
+    y = doc.y + 2
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text(cop.format(item.lineTotal), contentX, y, { width: contentWidth, align: 'right' })
+    y = doc.y + 7
+  }
+
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()
+  y += 9
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 2).text('TOTAL', contentX, y, { width: contentWidth * 0.4 })
+  doc.text(cop.format(quote.total), contentX, y, { width: contentWidth, align: 'right' })
+  y = doc.y + 10
+
+  if (quote.notes) {
+    doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(baseSize - 1).text('Observaciones', contentX, y, { width: contentWidth })
+    y = doc.y + 2
+    doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(quote.notes, contentX, y, { width: contentWidth })
+    y = doc.y + 8
+  }
+  if (company.representative) {
+    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(`Atendió: ${company.representative}`, contentX, y, { width: contentWidth, align: 'center' })
+    y = doc.y + 8
+  }
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  y += 8
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(baseSize).text('Gracias por preferirnos', contentX, y, { width: contentWidth, align: 'center' })
+}
+
+function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, continuation = false) {
+  const contentWidth = pageWidth - margin * 2
+  let y = margin
+  let detailsX = margin
+  if (profile.showLogo && existsSync(LOGO_PATH)) {
+    doc.image(LOGO_PATH, margin, y, { fit: [64, 64] })
+    detailsX += 76
+  }
+  const detailsWidth = pageWidth * 0.52 - (detailsX - margin)
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(15).text(company.name, detailsX, y + 1, { width: detailsWidth })
+  let companyY = doc.y + 3
+  for (const line of nonEmpty([company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
+    doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(line, detailsX, companyY, { width: detailsWidth })
+    companyY = doc.y + 1
+  }
+  const infoX = margin + contentWidth * 0.63
+  const infoWidth = contentWidth * 0.37
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(19).text(continuation ? 'COTIZACIÓN' : 'COTIZACIÓN', infoX, y + 2, { width: infoWidth, align: 'right' })
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.number, infoX, doc.y + 4, { width: infoWidth, align: 'right' })
+  doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(dateFormatter.format(new Date(quote.date)), infoX, doc.y + 3, { width: infoWidth, align: 'right' })
+  y = Math.max(y + 74, companyY + 8, doc.y + 16)
+
+  doc.roundedRect(margin, y, contentWidth, 66, 7).fill(PALE)
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(8).text('COTIZADO A', margin + 12, y + 9)
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.store.name, margin + 12, y + 23, { width: contentWidth - 24 })
+  const storeLines = nonEmpty([
+    quote.store.nit && `NIT/CC: ${quote.store.nit}`,
+    quote.store.address,
+    quote.store.city,
+    quote.store.phone && `Tel. ${quote.store.phone}`,
+    quote.store.contactName && `Contacto: ${quote.store.contactName}`,
+  ])
+  doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(storeLines.join('  ·  '), margin + 12, y + 42, { width: contentWidth - 24, height: 18, ellipsis: true })
+  return y + 82
+}
+
+function drawTableHeader(doc, margin, y, widths) {
+  const height = 24
+  doc.roundedRect(margin, y, widths.total, height, 4).fill(NAVY)
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8)
+  doc.text('PRODUCTO', margin + 8, y + 8, { width: widths.name - 12 })
+  doc.text('CANT.', margin + widths.name, y + 8, { width: widths.quantity - 6, align: 'right' })
+  doc.text('VALOR UNIT.', margin + widths.name + widths.quantity, y + 8, { width: widths.unitPrice - 8, align: 'right' })
+  doc.text('SUBTOTAL', margin + widths.name + widths.quantity + widths.unitPrice, y + 8, { width: widths.subtotal - 8, align: 'right' })
+  return y + height
+}
+
+function renderLetter(doc, quote, company, profile) {
+  const pageWidth = 612
+  const pageHeight = 792
+  const margin = mmToPt(profile.marginMm)
+  const contentWidth = pageWidth - margin * 2
+  const widths = {
+    total: contentWidth,
+    name: contentWidth * 0.40,
+    quantity: contentWidth * 0.15,
+    unitPrice: contentWidth * 0.22,
+    subtotal: contentWidth * 0.23,
+  }
+  let pageNumber = 1
+  let y = drawLetterHeader(doc, quote, company, profile, margin, pageWidth)
+  y = drawTableHeader(doc, margin, y, widths) + 4
+
+  for (const item of quote.items) {
+    doc.font('Helvetica').fontSize(9)
+    const rowHeight = Math.max(26, doc.heightOfString(item.cheeseName, { width: widths.name - 14 }) + 12)
+    if (y + rowHeight > pageHeight - margin - 34) {
+      doc.addPage({ size: 'LETTER', margin: 0 })
+      pageNumber += 1
+      y = drawLetterHeader(doc, quote, company, profile, margin, pageWidth, true)
+      y = drawTableHeader(doc, margin, y, widths) + 4
+    }
+    if (pageNumber % 2 === 0) doc.rect(margin, y, contentWidth, rowHeight).fill('#F4F7FA')
+    const textY = y + 7
+    doc.fillColor(NAVY).font('Helvetica').fontSize(9).text(item.cheeseName, margin + 7, textY, { width: widths.name - 14, height: rowHeight - 8 })
+    const quantityX = margin + widths.name
+    doc.fillColor(MUTED).fontSize(8.5).text(`${item.quantity} ${item.unit}`, quantityX, textY, { width: widths.quantity - 7, align: 'right' })
+    const unitX = quantityX + widths.quantity
+    doc.text(cop.format(item.unitPrice), unitX, textY, { width: widths.unitPrice - 7, align: 'right' })
+    const subtotalX = unitX + widths.unitPrice
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(8.5).text(cop.format(item.lineTotal), subtotalX, textY, { width: widths.subtotal - 8, align: 'right' })
+    y += rowHeight
+    doc.moveTo(margin, y).lineTo(margin + contentWidth, y).lineWidth(0.4).strokeColor('#D9E0E8').stroke()
+  }
+
+  const noteHeight = quote.notes ? Math.max(38, doc.heightOfString(quote.notes, { width: contentWidth - 20, fontSize: 9 }) + 25) : 0
+  if (y + 74 + noteHeight > pageHeight - margin - 30) {
+    doc.addPage({ size: 'LETTER', margin: 0 })
+    pageNumber += 1
+    y = drawLetterHeader(doc, quote, company, profile, margin, pageWidth, true)
+  }
+  y += 16
+  doc.roundedRect(margin + contentWidth * 0.53, y, contentWidth * 0.47, 39, 6).fill(PALE)
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(11).text('TOTAL', margin + contentWidth * 0.55, y + 13)
+  doc.fillColor(BRAND).fontSize(15).text(cop.format(quote.total), margin + contentWidth * 0.55, y + 10, { width: contentWidth * 0.41, align: 'right' })
+  y += 54
+
+  if (quote.notes) {
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9).text('Observaciones', margin, y)
+    y = doc.y + 4
+    doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(quote.notes, margin, y, { width: contentWidth })
+    y = doc.y + 12
+  }
+  if (company.representative) {
+    doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(`Atendió: ${company.representative}`, margin, y)
+    y = doc.y + 10
+  }
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text('Gracias por preferirnos', margin, Math.min(y + 6, pageHeight - margin - 25), { width: contentWidth, align: 'center' })
+
+  if (doc.bufferedPageRange) {
+    const range = doc.bufferedPageRange()
+    for (let index = range.start; index < range.start + range.count; index += 1) {
+      doc.switchToPage(index)
+      doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(`${quote.number} · Página ${index + 1}`, margin, pageHeight - margin - 14, { width: contentWidth, align: 'right' })
+    }
+  }
+}
+
+export function generateQuotePdf(quote, companySettings, printProfile = quote.printProfile) {
+  const profile = normalizedProfile(printProfile)
+  const company = companySettings.toObject ? companySettings.toObject() : companySettings
+  const thermal = profile.format !== 'letter'
+  const widthMm = profile.format === 'thermal58' ? 58 : 80
+  const size = thermal ? [mmToPt(widthMm), thermalHeight(quote)] : 'LETTER'
+  const doc = new PDFDocument({ size, margin: 0, compress: true, bufferPages: !thermal, info: { Title: `Cotización ${quote.number}`, Author: company.name } })
+
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+    try {
+      if (thermal) renderThermal(doc, quote, company, profile)
+      else renderLetter(doc, quote, company, profile)
+      doc.end()
+    } catch (error) { reject(error) }
+  })
+}

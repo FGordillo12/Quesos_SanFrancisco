@@ -25,6 +25,7 @@ export function DashboardPage() {
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Quesos</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
+            {user?.role === 'admin' && <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/settings/company">Empresa e impresión</Link>}
           </nav>
           <button onClick={logout} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cerrar sesión</button>
         </div>
@@ -45,6 +46,7 @@ export function DashboardPage() {
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Quesos</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>
+          {user?.role === 'admin' && <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/settings/company">Empresa e impresión</Link>}
         </nav>
       </section>
     </main>

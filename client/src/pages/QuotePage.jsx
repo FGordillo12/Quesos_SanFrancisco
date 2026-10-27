@@ -56,6 +56,7 @@ export function QuotePage() {
   const [loading, setLoading] = useState(true)
   const [loadingPrices, setLoadingPrices] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [savedQuote, setSavedQuote] = useState(null)
@@ -164,6 +165,30 @@ export function QuotePage() {
     } finally { setSaving(false) }
   }
 
+  async function openQuotePdf(print = false) {
+    setError('')
+    const printWindow = print ? window.open('', '_blank') : null
+    if (print && !printWindow) { setError('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes e inténtalo de nuevo.'); return }
+    setPdfBusy(true)
+    try {
+      const { data } = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+      if (printWindow) {
+        printWindow.location.href = url
+        printWindow.addEventListener('load', () => printWindow.print(), { once: true })
+      } else {
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `${savedQuote.number}.pdf`
+        document.body.appendChild(anchor); anchor.click(); anchor.remove()
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (requestError) {
+      printWindow?.close()
+      setError(requestError.response?.data?.error?.message || 'No se pudo generar el PDF.')
+    } finally { setPdfBusy(false) }
+  }
+
   function startNewQuote() {
     setSavedQuote(null)
     setItems([])
@@ -186,6 +211,11 @@ export function QuotePage() {
       </div>
       <div className="mt-6 divide-y divide-slate-100">
         {savedQuote.items.map((item) => <div key={item.cheese} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{item.cheeseName} · {item.quantity} {item.unit}<span className="ml-2 text-xs text-slate-500">{money.format(item.unitPrice)} / {item.unit}</span></span><span className="font-semibold">{money.format(item.lineTotal)}</span></div>)}
+      </div>
+      {error && <ErrorNotice>{error}</ErrorNotice>}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <button type="button" onClick={() => openQuotePdf(false)} disabled={pdfBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand hover:bg-primary disabled:opacity-50">{pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
+        <button type="button" onClick={() => openQuotePdf(true)} disabled={pdfBusy} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">Imprimir</button>
       </div>
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Nueva cotización</button>
     </section>
