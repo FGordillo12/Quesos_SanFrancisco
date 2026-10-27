@@ -14,6 +14,7 @@ import {
   trustedOrigin,
 } from './middleware/security.js'
 import { authRouter } from './modules/auth/auth.routes.js'
+import { cheeseRouter, priceRouter, storeRouter } from './modules/catalog/catalog.routes.js'
 
 export function createApp() {
   const app = express()
@@ -48,6 +49,9 @@ export function createApp() {
     return res.status(ready ? 200 : 503).json({ ok: ready, data: { status: ready ? 'ready' : 'database_unavailable' }, error: null })
   })
   app.use('/api/auth', authRouter)
+  app.use('/api/cheeses', cheeseRouter)
+  app.use('/api/stores', storeRouter)
+  app.use('/api/prices', priceRouter)
   app.use('/api', notFoundHandler)
   app.use(errorHandler)
   return app

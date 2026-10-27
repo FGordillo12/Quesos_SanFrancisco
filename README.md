@@ -25,6 +25,13 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 - Protección CSRF con cookie de doble envío y cabecera `X-CSRF-Token`, además de validación de origen.
 - Cliente con pantallas de registro, inicio de sesión, verificación, recuperación y cambio de contraseña; estado autenticado en memoria, sin guardar tokens en `localStorage`.
 
+## Fase 4 — Catálogo, almacenes y precios
+
+- CRUD autenticado de quesos y almacenes; solo `admin` puede crear, editar o desactivar. Las bajas son lógicas para conservar referencias.
+- Matriz de tarifas particulares por queso y almacén, y una tarifa general por queso para facturas de almacenes nuevos. El vendedor consulta, pero no cambia precios.
+- Cambios de precios en lote dentro de una transacción MongoDB, con historial de valor anterior/nuevo, usuario y fecha.
+- El futuro cotizador será una sola pantalla: seleccionará un almacén registrado o permitirá ingresar los datos de un almacén nuevo sin guardarlo en el catálogo. Para el segundo caso usará la tarifa general; nunca pedirá al vendedor que escriba el precio del queso.
+
 ## Correo y secretos de autenticación
 
 El `.env` local ya contiene secretos JWT generados aleatoriamente. No los publiques ni los copies a Git. Para habilitar registro, verificación y restablecimiento, completa en `.env` `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` y `SMTP_FROM`. Los campos SMTP se dejan vacíos en `.env.example` y deben configurarse juntos. Sin SMTP, el registro no crea la cuenta y la recuperación mantiene una respuesta genérica.
@@ -44,7 +51,7 @@ Al preparar otro entorno, genera valores independientes para `ACCESS_TOKEN_SECRE
 4. Ejecute `npm run dev` para iniciar cliente y API. El cliente usa el puerto 5173 y la API el 4000.
 5. Consulte `http://localhost:4000/api/health`; la respuesta debe indicar `ready`.
 
-Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
+Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refresh`, `/verify-email`, `/forgot-password` y `/reset-password`; `GET /api/auth/csrf` y `/me`. El catálogo usa `/api/stores`, `/api/cheeses` y `/api/prices` (incluye `/general` e `/history`). Las operaciones que cambian datos requieren la cookie CSRF más la cabecera `X-CSRF-Token`.
 
 `client/.env.example` documenta `VITE_API_URL`, reservado para la integración del frontend en una fase posterior.
 
@@ -60,7 +67,7 @@ Rutas de autenticación: `POST /api/auth/register`, `/login`, `/logout`, `/refre
 | `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET` | Secretos JWT independientes de 32+ caracteres | Generar uno distinto para cada variable |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Transporte de correo para enlaces de verificación y recuperación | Configurar todos juntos |
 
-Para producción, use `mongodb+srv://` o `tls=true` en la URI, configure el proxy HTTPS y establezca `TRUST_PROXY_HOPS` al número real de saltos confiables. No exponga la API directamente con `trust proxy` habilitado si no controla ese proxy.
+Para producción, use `mongodb+srv://` o `tls=true` en la URI, configure el proxy HTTPS y establezca `TRUST_PROXY_HOPS` al número real de saltos confiables. Las transacciones de precios requieren una instancia MongoDB replica set (MongoDB Atlas cumple este requisito). No exponga la API directamente con `trust proxy` habilitado si no controla ese proxy.
 
 ## Comandos
 

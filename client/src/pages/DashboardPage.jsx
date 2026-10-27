@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { useAuth } from '../AuthContext'
 
@@ -19,7 +19,14 @@ export function DashboardPage() {
           <img src={logo} alt="" className="h-12 w-12 rounded-full object-contain" />
           <div><p className="font-extrabold">Quesos San Francisco</p><p className="text-xs text-slate-500">Ubaté · Vereda Soaga</p></div>
         </div>
-        <button onClick={logout} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cerrar sesión</button>
+        <div className="flex items-center gap-2">
+          <nav aria-label="Módulos" className="hidden flex-wrap gap-1 md:flex">
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Quesos</Link>
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
+          </nav>
+          <button onClick={logout} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cerrar sesión</button>
+        </div>
       </header>
       <section className="mx-auto mt-8 max-w-6xl">
         <p className="text-sm font-semibold capitalize text-brand">{date}</p>
@@ -29,8 +36,13 @@ export function DashboardPage() {
           <p className="text-sm font-bold uppercase tracking-wider text-brand">Acceso</p>
           <p className="mt-2 text-lg font-bold">{user?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
           <p className="mt-1 text-sm text-slate-600">{user?.email}</p>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-600">La sesión está protegida con cookies seguras, renovación automática y expiración controlada. Los módulos de gestión se habilitarán en las siguientes fases.</p>
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-600">La sesión está protegida con cookies seguras, renovación automática y expiración controlada. Administra el catálogo y las tarifas desde estos accesos.</p>
         </div>
+        <nav aria-label="Accesos a gestión" className="mt-5 grid gap-3 sm:grid-cols-3 md:hidden">
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Quesos</Link>
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>
+        </nav>
       </section>
     </main>
   )
