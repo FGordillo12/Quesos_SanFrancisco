@@ -2,6 +2,7 @@ import cors from 'cors'
 import mongoSanitize from 'express-mongo-sanitize'
 import hpp from 'hpp'
 import rateLimit from 'express-rate-limit'
+import { safeEqual } from '../modules/auth/auth.utils.js'
 
 export function createCorsMiddleware(clientOrigin) {
   return cors({
@@ -24,6 +25,14 @@ export function trustedOrigin(clientOrigin) {
   }
 }
 
+export function csrfProtection(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next()
+  const cookieToken = req.cookies?.csrf_token
+  const headerToken = req.get('x-csrf-token')
+  if (safeEqual(cookieToken, headerToken)) return next()
+  return res.status(403).json({ ok: false, data: null, error: { code: 'CSRF_INVALID', message: 'La solicitud expiró. Recarga la página e inténtalo de nuevo.' } })
+}
+
 export function sanitizeMongoInput(req, res, next) {
   // Express 5 exposes req.query through a getter. Give the sanitizer a writable copy.
   Object.defineProperty(req, 'query', {
@@ -42,4 +51,12 @@ export const globalRateLimit = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { ok: false, data: null, error: { code: 'RATE_LIMITED', message: 'Demasiadas solicitudes. Intente más tarde.' } },
+})
+
+export const sensitiveRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { ok: false, data: null, error: { code: 'RATE_LIMITED', message: 'Demasiados intentos. Intente más tarde.' } },
 })

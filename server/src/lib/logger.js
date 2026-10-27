@@ -16,7 +16,6 @@ export const requestLogger = pinoHttp({
     req: (req) => ({
       method: req.method,
       path: new URL(req.url, 'http://localhost').pathname,
-      remoteAddress: req.remoteAddress,
     }),
     res: (res) => ({ statusCode: res.statusCode }),
   },
