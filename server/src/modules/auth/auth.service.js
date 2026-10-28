@@ -103,6 +103,16 @@ export async function loginUser({ email, password }) {
   const now = new Date()
   const locked = Boolean(user?.lockUntil && user.lockUntil > now)
 
+  // A correct password must not be reported as invalid just because the
+  // account reached the temporary lockout threshold after earlier attempts.
+  if (user && locked && user.isActive && passwordMatches) {
+    const error = new Error('La cuenta está bloqueada temporalmente por varios intentos. Inténtalo de nuevo más tarde.')
+    error.status = 429
+    error.code = 'ACCOUNT_TEMPORARILY_LOCKED'
+    error.retryAfterSeconds = Math.ceil((user.lockUntil.getTime() - now.getTime()) / 1000)
+    throw error
+  }
+
   if (!user || locked || !user.isActive || !passwordMatches) {
     if (user && !locked && user.isActive && !passwordMatches) {
       if (user.lockUntil && user.lockUntil <= now) {

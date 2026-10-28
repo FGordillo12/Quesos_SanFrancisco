@@ -116,7 +116,13 @@ authRouter.post('/login', sensitiveRateLimit, parseBody(loginSchema), async (req
     const accessToken = createAccessToken(user._id, session.sessionId)
     setSessionCookies(res, accessToken, session.token, session.ttlSeconds)
     return res.json({ ok: true, data: { user: publicUser(user) }, error: null })
-  } catch (error) { return next(error) }
+  } catch (error) {
+    if (error.code === 'ACCOUNT_TEMPORARILY_LOCKED') {
+      res.set('Retry-After', String(error.retryAfterSeconds))
+      return sendError(res, 429, error.code, error.message)
+    }
+    return next(error)
+  }
 })
 
 authRouter.post('/refresh', async (req, res) => {
