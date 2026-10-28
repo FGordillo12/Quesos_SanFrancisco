@@ -5,8 +5,8 @@ const storeSnapshotSchema = new mongoose.Schema({
   storeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', default: null },
   name: { type: String, required: true, trim: true, maxlength: 120 },
   nit: { type: String, trim: true, maxlength: 30, default: '' },
-  address: { type: String, required: true, trim: true, maxlength: 200 },
-  city: { type: String, required: true, trim: true, maxlength: 100 },
+  address: { type: String, trim: true, maxlength: 200, default: '' },
+  city: { type: String, trim: true, maxlength: 100, default: '' },
   phone: { type: String, trim: true, maxlength: 40, default: '' },
   email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
   contactName: { type: String, trim: true, maxlength: 120, default: '' },
@@ -51,6 +51,8 @@ quoteSchema.index({ date: -1, createdBy: 1 })
 quoteSchema.index({ 'store.storeId': 1, date: -1 })
 quoteSchema.pre('validate', function validateStoreSnapshot() {
   if (this.store?.mode === 'registered' && !this.store.storeId) this.invalidate('store.storeId', 'El almacén registrado requiere una referencia.')
+  if (this.store?.mode === 'registered' && !this.store.address?.trim()) this.invalidate('store.address', 'El almacén registrado requiere una dirección.')
+  if (this.store?.mode === 'registered' && !this.store.city?.trim()) this.invalidate('store.city', 'El almacén registrado requiere una ciudad.')
   if (this.store?.mode === 'new' && this.store.storeId) this.invalidate('store.storeId', 'Un almacén nuevo no debe guardar una referencia del catálogo.')
 })
 

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import logo from '../assets/logo.png'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
+import { AlertModal } from '../components/AlertModal'
 import { PasswordInput } from '../components/PasswordInput'
 
 const commonPasswords = new Set(['password', 'password1', 'password12', 'password123', 'password1234', 'password123!', 'p@ssw0rd!', 'qwerty123', 'qwerty12345', 'qwerty123!', 'admin123', 'admin12345', 'letmein123', 'letmein1234', 'welcome123', 'welcome1234', 'iloveyou123', 'abc1234567', '1234567890', '123456789a', '1q2w3e4r5t', 'q1w2e3r4t5', 'changeme123', 'secret12345', 'trustno1234', 'monkey12345', 'dragon12345', 'football1234', 'sunshine1234', 'princess1234', 'superman1234', 'whatever1234', 'colombia123', 'colombia2024!', 'sanfrancisco1', 'quesos12345', 'ubate2024!'])
@@ -105,6 +106,7 @@ const passwordRules = [
 export function RegisterPage() {
   const [notice, setNotice] = useState('')
   const [success, setSuccess] = useState(false)
+  const [feedback, setFeedback] = useState(null)
   const form = useForm({ resolver: zodResolver(registerSchema), defaultValues: { name: '', email: '', password: '', confirmPassword: '' } })
   const password = form.watch('password') || ''
   const submit = form.handleSubmit(async ({ name, email, password: newPassword }) => {
@@ -112,12 +114,18 @@ export function RegisterPage() {
     try {
       await api.post('/auth/register', { name, email, password: newPassword })
       setSuccess(true)
-    } catch (error) { setNotice(getError(error, 'No se pudo crear la cuenta. Inténtalo de nuevo.')) }
+      setFeedback({ variant: 'success', message: 'La cuenta se creó correctamente. Ya puedes iniciar sesión.' })
+    } catch (error) {
+      const message = getError(error, 'No se pudo crear la cuenta. Inténtalo de nuevo.')
+      setNotice(message)
+      setFeedback({ variant: 'error', message })
+    }
   })
 
   if (success) return <AuthLayout title="Cuenta creada" subtitle="Tu cuenta ya está lista para iniciar sesión.">
     <Notice>Se creó con permisos de vendedor. Un administrador puede cambiar el rol cuando sea necesario.</Notice>
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Volver al inicio de sesión</Link></p>
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
   </AuthLayout>
 
   return <AuthLayout title="Crear cuenta" subtitle="Completa tus datos para comenzar.">
@@ -137,6 +145,7 @@ export function RegisterPage() {
       {notice && <Notice type="error">{notice}</Notice>}
       <SubmitButton busy={form.formState.isSubmitting}>Crear cuenta</SubmitButton>
     </form>
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
     <p className="mt-6 text-center text-sm text-slate-600">¿Ya tienes cuenta? <Link className="font-bold text-brand" to="/login">Iniciar sesión</Link></p>
   </AuthLayout>
 }
@@ -144,6 +153,7 @@ export function RegisterPage() {
 export function ForgotPasswordPage() {
   const [notice, setNotice] = useState('')
   const [sent, setSent] = useState(false)
+  const [feedback, setFeedback] = useState(null)
   const form = useForm({ resolver: zodResolver(emailSchema), defaultValues: { email: '' } })
   const submit = form.handleSubmit(async (values) => {
     setNotice('')
@@ -151,7 +161,12 @@ export function ForgotPasswordPage() {
       const { data } = await api.post('/auth/forgot-password', values)
       setNotice(data.data.message)
       setSent(true)
-    } catch (error) { setNotice(getError(error, 'No se pudo procesar la solicitud.')) }
+      setFeedback({ variant: 'success', message: data.data.message })
+    } catch (error) {
+      const message = getError(error, 'No se pudo procesar la solicitud.')
+      setNotice(message)
+      setFeedback({ variant: 'error', message })
+    }
   })
   return <AuthLayout title="Recuperar contraseña" subtitle="Te enviaremos un enlace si el correo está registrado.">
     {!sent && <form onSubmit={submit} className="space-y-5" noValidate>
@@ -160,16 +175,17 @@ export function ForgotPasswordPage() {
       <SubmitButton busy={form.formState.isSubmitting}>Enviar instrucciones</SubmitButton>
     </form>}
     {sent && <Notice>{notice}</Notice>}
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Volver al inicio de sesión</Link></p>
   </AuthLayout>
 }
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams()
-  const navigate = useNavigate()
   const token = params.get('token') || ''
   const [notice, setNotice] = useState('')
   const [success, setSuccess] = useState(false)
+  const [feedback, setFeedback] = useState(null)
   const form = useForm({ resolver: zodResolver(resetSchema), defaultValues: { password: '', confirmPassword: '' } })
   const submit = form.handleSubmit(async ({ password }) => {
     setNotice('')
@@ -177,8 +193,12 @@ export function ResetPasswordPage() {
       const { data } = await api.post('/auth/reset-password', { token, password })
       setNotice(data.data.message)
       setSuccess(true)
-      window.setTimeout(() => navigate('/login', { replace: true }), 1200)
-    } catch (error) { setNotice(getError(error, 'No se pudo cambiar la contraseña.')) }
+      setFeedback({ variant: 'success', message: data.data.message })
+    } catch (error) {
+      const message = getError(error, 'No se pudo cambiar la contraseña.')
+      setNotice(message)
+      setFeedback({ variant: 'error', message })
+    }
   })
   return <AuthLayout title="Nueva contraseña" subtitle="Elige una contraseña segura para tu cuenta.">
     {!token && <Notice type="error">Falta el enlace de recuperación. Solicita uno nuevo.</Notice>}
@@ -189,6 +209,7 @@ export function ResetPasswordPage() {
       <SubmitButton busy={form.formState.isSubmitting}>Guardar contraseña</SubmitButton>
     </form>}
     {success && <Notice>{notice}</Notice>}
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Ir a iniciar sesión</Link></p>
   </AuthLayout>
 }
@@ -199,6 +220,7 @@ export function VerifyEmailPage() {
   const [notice, setNotice] = useState('Pulsa el botón para confirmar tu correo.')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState(null)
   async function verify() {
     if (!token || busy) return
     setBusy(true)
@@ -206,13 +228,17 @@ export function VerifyEmailPage() {
       const { data } = await api.post('/auth/verify-email', { token })
       setNotice(data.data.message)
       setError(false)
+      setFeedback({ variant: 'success', message: data.data.message })
     } catch (err) {
-      setNotice(getError(err, 'El enlace no es válido o ya venció.'))
+      const message = getError(err, 'El enlace no es válido o ya venció.')
+      setNotice(message)
       setError(true)
+      setFeedback({ variant: 'error', message })
     } finally { setBusy(false) }
   }
   return <AuthLayout title="Verificar correo" subtitle="Confirma el correo electrónico asociado a tu cuenta.">
     <Notice type={error ? 'error' : 'info'}>{!token ? 'El enlace no contiene un token de verificación.' : notice}</Notice>
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
     {token && !error && notice.startsWith('Pulsa') && <button onClick={verify} disabled={busy} className="mt-5 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-60">{busy ? 'Verificando…' : 'Verificar correo'}</button>}
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Ir a iniciar sesión</Link></p>
   </AuthLayout>

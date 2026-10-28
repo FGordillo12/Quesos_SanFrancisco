@@ -28,8 +28,8 @@ const sharedQuoteFields = {
 const newStoreSchema = z.object({
   name: z.string().trim().min(2).max(120),
   nit: z.string().trim().max(30).optional().default(''),
-  address: z.string().trim().min(2).max(200),
-  city: z.string().trim().min(2).max(100),
+  address: z.string().trim().max(200).optional().default(''),
+  city: z.string().trim().max(100).optional().default(''),
   phone: z.string().trim().max(40).optional().default(''),
   email: z.union([z.string().trim().email().max(254), z.literal('')]).optional().default(''),
   contactName: z.string().trim().max(120).optional().default(''),

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { AlertModal } from '../components/AlertModal'
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const emptyNewStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
@@ -61,6 +62,7 @@ export function QuotePage() {
   const [driveBusy, setDriveBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState(null)
   const [savedQuote, setSavedQuote] = useState(null)
 
   useEffect(() => {
@@ -99,8 +101,7 @@ export function QuotePage() {
   const selectedPrice = selectedCheese ? prices.get(selectedCheese._id)?.price : null
   useEffect(() => { setDraftUnitPrice(selectedPrice == null ? '' : String(selectedPrice)) }, [selectedCheeseId, selectedPrice, mode])
   const previewTotal = items.reduce((sum, item) => sum + lineTotal(item.unitPrice, toMilli(item.quantity) || 0), 0)
-  const newStoreValid = newStore.name.trim().length >= 2 && newStore.address.trim().length >= 2 && newStore.city.trim().length >= 2
-  const canSave = items.length > 0 && !loadingPrices && !saving && (mode === 'registered' ? Boolean(storeId) : newStoreValid)
+  const canSave = !loadingPrices && !saving && (mode !== 'registered' || Boolean(storeId))
 
   function setDestination(nextMode) {
     setMode(nextMode)
@@ -108,6 +109,7 @@ export function QuotePage() {
     setSavedQuote(null)
     setMessage('')
     setError('')
+    setFeedback(null)
   }
 
   function addItem() {
@@ -152,10 +154,25 @@ export function QuotePage() {
   async function saveQuote() {
     setError('')
     setMessage('')
+    setFeedback(null)
+    if (mode === 'new' && newStore.name.trim().length < 2) {
+      const message = newStore.name.trim() ? 'El nombre del almacén debe tener al menos 2 caracteres.' : 'No se puede crear la factura ni generar el PDF: falta el nombre del almacén nuevo.'
+      setError(message)
+      setFeedback({ variant: 'error', message })
+      document.getElementById('new-store-name')?.focus()
+      return
+    }
+    if (items.length === 0) {
+      const message = 'Agrega al menos un producto antes de generar la factura.'
+      setError(message)
+      setFeedback({ variant: 'error', message })
+      return
+    }
     for (const item of items) {
       const quantityMilli = toMilli(item.quantity)
       if (!quantityMilli || (item.unit === 'und' && quantityMilli % 1000 !== 0) || lineTotal(item.unitPrice, quantityMilli) < 1) {
         setError(`Revisa la cantidad de ${item.name}.`)
+        setFeedback({ variant: 'error', message: `Revisa la cantidad de ${item.name}.` })
         return
       }
     }
@@ -171,6 +188,7 @@ export function QuotePage() {
       const { data } = await api.post('/quotes', payload)
       const quote = data.data
       setSavedQuote(quote)
+      setFeedback({ variant: 'success', message: `La factura ${quote.number} se guardó correctamente.` })
       setMessage(`Factura ${quote.number} guardada. Guardando PDF en Google Drive…`)
       setItems([])
       setDriveBusy(true)
@@ -180,11 +198,15 @@ export function QuotePage() {
         setSavedQuote(updatedQuote)
         setMessage(`Factura ${quote.number} guardada y PDF enviado a Google Drive.`)
       } catch (driveError) {
-        setError(driveError.response?.data?.error?.message || 'La factura se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.')
+        const message = driveError.response?.data?.error?.message || 'La factura se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.'
+        setError(message)
+        setFeedback({ variant: 'error', message })
         setMessage(`Factura ${quote.number} guardada.`)
       } finally { setDriveBusy(false) }
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'No se pudo guardar la factura.')
+      const message = requestError.response?.data?.error?.message || 'No se pudo guardar la factura.'
+      setError(message)
+      setFeedback({ variant: 'error', message })
     } finally { setSaving(false) }
   }
 
@@ -208,7 +230,9 @@ export function QuotePage() {
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (requestError) {
       printWindow?.close()
-      setError(requestError.response?.data?.error?.message || 'No se pudo generar el PDF.')
+      const message = requestError.response?.data?.error?.message || 'No se pudo generar el PDF.'
+      setError(message)
+      setFeedback({ variant: 'error', message })
     } finally { setPdfBusy(false) }
   }
 
@@ -219,8 +243,11 @@ export function QuotePage() {
       const { data } = await api.post(`/quotes/${savedQuote._id}/drive`)
       setSavedQuote((current) => ({ ...current, driveFile: data.data.driveFile }))
       setMessage('PDF guardado en Google Drive.')
+      setFeedback({ variant: 'success', message: 'El PDF de la factura se guardó correctamente en Google Drive.' })
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'No se pudo guardar el PDF en Google Drive.')
+      const message = requestError.response?.data?.error?.message || 'No se pudo guardar el PDF en Google Drive.'
+      setError(message)
+      setFeedback({ variant: 'error', message })
     } finally { setDriveBusy(false) }
   }
 
@@ -231,6 +258,7 @@ export function QuotePage() {
     setDate(currentBogotaDate())
     setMessage('')
     setError('')
+    setFeedback(null)
   }
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-primary text-ink" role="status">Cargando el cotizador…</main>
@@ -255,6 +283,10 @@ export function QuotePage() {
       {savedQuote.driveFile?.id ? <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a> : <button type="button" onClick={savePdfToDrive} disabled={driveBusy} className="mt-3 w-full rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{driveBusy ? 'Guardando en Google Drive…' : 'Guardar PDF en Google Drive'}</button>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
     </section>
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {
+      setFeedback(null)
+      if (mode === 'new' && !newStore.name.trim()) window.setTimeout(() => document.getElementById('new-store-name')?.focus(), 0)
+    }} />
   </main>
 
   return <main className="min-h-screen bg-primary px-4 py-6 pb-36 text-ink sm:px-8 sm:py-10 sm:pb-36">
@@ -272,14 +304,8 @@ export function QuotePage() {
           {mode === 'registered' ? <div className="mt-4">
             {stores.length ? <Field label="Almacén"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay almacenes registrados activos. Puedes crear esta factura con datos de un almacén nuevo.</p>}
           </div> : <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Input label="Nombre del almacén" name="name" value={newStore.name} onChange={updateNewStore} required maxLength={120} />
-            <Input label="NIT o cédula" name="nit" value={newStore.nit} onChange={updateNewStore} maxLength={30} />
-            <Input label="Dirección" name="address" value={newStore.address} onChange={updateNewStore} required maxLength={200} />
-            <Input label="Ciudad" name="city" value={newStore.city} onChange={updateNewStore} required maxLength={100} />
-            <Input label="Teléfono" name="phone" value={newStore.phone} onChange={updateNewStore} maxLength={40} />
-            <Input label="Correo" type="email" name="email" value={newStore.email} onChange={updateNewStore} maxLength={254} />
-            <Input label="Persona de contacto" name="contactName" value={newStore.contactName} onChange={updateNewStore} maxLength={120} />
-            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark sm:col-span-2">Estos datos se guardan únicamente en esta factura; el almacén no se agrega al catálogo.</p>
+            <Input label="Nombre del almacén" name="name" value={newStore.name} onChange={updateNewStore} required minLength={2} maxLength={120} id="new-store-name" />
+            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark">Este almacén solo aparecerá en esta factura y no se agregará al catálogo. NIT, dirección, ciudad, teléfono y contacto aparecerán vacíos en el PDF.</p>
           </div>}
         </article>
 
@@ -331,5 +357,9 @@ export function QuotePage() {
         <button type="button" onClick={saveQuote} disabled={!canSave} className="min-w-40 rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar factura'}</button>
       </div>
     </div>
+    <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {
+      setFeedback(null)
+      if (mode === 'new' && !newStore.name.trim()) window.setTimeout(() => document.getElementById('new-store-name')?.focus(), 0)
+    }} />
   </main>
 }

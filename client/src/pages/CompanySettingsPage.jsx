@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
+import { AlertModal } from '../components/AlertModal'
 
 const defaults = { name: '', location: '', nit: '', phone: '', email: '', representative: '', printProfile: { format: 'letter', marginMm: 10, fontSize: 9, showLogo: true } }
 
@@ -47,7 +48,6 @@ export function CompanySettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
-  const [savedMessage, setSavedMessage] = useState('')
   const [error, setError] = useState('')
   const [driveStatus, setDriveStatus] = useState({ configured: false, connected: false, accountEmail: '', folderName: '', redirectUri: null, pickerApiKey: null, pickerAppId: null })
   const [driveBusy, setDriveBusy] = useState(false)
@@ -83,7 +83,7 @@ export function CompanySettingsPage() {
     try {
       const { data } = await api.put('/settings/company', payload)
       setForm({ ...form, ...data.data, printProfile: { ...form.printProfile, ...data.data.printProfile } })
-      setSavedMessage('La información de la empresa y el perfil de impresión se guardaron correctamente. Los cambios se aplican a las nuevas cotizaciones.')
+      setNotice('La información de la empresa y el perfil de impresión se guardaron correctamente. Los cambios se aplican a las nuevas facturas.')
     }
     catch (err) { setError(err.response?.data?.error?.message || 'No se pudo guardar la configuración.') }
     finally { setSaving(false) }
@@ -121,8 +121,7 @@ export function CompanySettingsPage() {
       <Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link>
       <h1 className="mt-5 text-3xl font-extrabold">Empresa e impresión</h1>
       <p className="mt-2 text-sm text-slate-600">Estos datos aparecerán en los PDF. El perfil se guarda en cada cotización nueva.</p>
-      {error && <p role="alert" className="mt-5 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
-      {notice && <p role="status" className="mt-5 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+      <AlertModal message={error || notice} variant={error ? 'error' : 'success'} onClose={() => { setError(''); setNotice('') }} />
       {admin && <section className="mt-6 rounded-2xl border border-slate-200 p-5">
         <h2 className="font-extrabold">Google Drive</h2>
         <p className="mt-1 text-sm text-slate-600">{driveStatus.connected ? `Conectado${driveStatus.accountEmail ? ` como ${driveStatus.accountEmail}` : ''}. ${driveStatus.folderName ? `Carpeta: ${driveStatus.folderName}.` : 'Selecciona la carpeta donde se guardarán los PDF.'}` : 'Conecta tu cuenta personal de Google para guardar automáticamente los PDF de las cotizaciones.'}</p>
@@ -152,13 +151,5 @@ export function CompanySettingsPage() {
         {admin ? <button disabled={saving} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar configuración'}</button> : <p className="text-sm text-slate-600">Solo el administrador puede modificar estos datos.</p>}
       </form>
     </section>
-    {savedMessage && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget) setSavedMessage('') }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="settings-saved-title" aria-describedby="settings-saved-description" className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl sm:p-8">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl font-extrabold text-emerald-700" aria-hidden="true">✓</div>
-        <h2 id="settings-saved-title" className="mt-4 text-xl font-extrabold">Cambios guardados</h2>
-        <p id="settings-saved-description" className="mt-2 text-sm leading-6 text-slate-600">{savedMessage}</p>
-        <button type="button" autoFocus onClick={() => setSavedMessage('')} className="mt-6 rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark">Entendido</button>
-      </section>
-    </div>}
   </main>
 }

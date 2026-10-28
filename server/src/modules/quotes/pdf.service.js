@@ -61,14 +61,24 @@ function renderThermal(doc, quote, company, profile) {
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
   y += 8
 
-  for (const line of nonEmpty([
-    `Almacén: ${quote.store.name}`,
-    quote.store.nit && `NIT/CC: ${quote.store.nit}`,
-    quote.store.address,
-    quote.store.city,
-    quote.store.phone && `Tel. ${quote.store.phone}`,
-    quote.store.contactName && `Contacto: ${quote.store.contactName}`,
-  ])) {
+  const storeDetails = quote.store.mode === 'new'
+    ? [
+        `Almacén: ${quote.store.name}`,
+        `NIT/CC: ${quote.store.nit || ''}`,
+        `Dirección: ${quote.store.address || ''}`,
+        `Ciudad: ${quote.store.city || ''}`,
+        `Teléfono: ${quote.store.phone || ''}`,
+        `Contacto: ${quote.store.contactName || ''}`,
+      ]
+    : nonEmpty([
+        `Almacén: ${quote.store.name}`,
+        quote.store.nit && `NIT/CC: ${quote.store.nit}`,
+        quote.store.address,
+        quote.store.city,
+        quote.store.phone && `Tel. ${quote.store.phone}`,
+        quote.store.contactName && `Contacto: ${quote.store.contactName}`,
+      ])
+  for (const line of storeDetails) {
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth })
     y = doc.y + 2
   }
@@ -129,18 +139,33 @@ function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, conti
   doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(dateFormatter.format(new Date(quote.date)), infoX, doc.y + 3, { width: infoWidth, align: 'right' })
   y = Math.max(y + 74, companyY + 8, doc.y + 16)
 
-  doc.roundedRect(margin, y, contentWidth, 66, 7).fill(PALE)
+  const isNewStore = quote.store.mode === 'new'
+  const customerBoxHeight = isNewStore ? 104 : 66
+  doc.roundedRect(margin, y, contentWidth, customerBoxHeight, 7).fill(PALE)
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(8).text('CLIENTE', margin + 12, y + 9)
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.store.name, margin + 12, y + 23, { width: contentWidth - 24 })
-  const storeLines = nonEmpty([
-    quote.store.nit && `NIT/CC: ${quote.store.nit}`,
-    quote.store.address,
-    quote.store.city,
-    quote.store.phone && `Tel. ${quote.store.phone}`,
-    quote.store.contactName && `Contacto: ${quote.store.contactName}`,
-  ])
-  doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(storeLines.join('  ·  '), margin + 12, y + 42, { width: contentWidth - 24, height: 18, ellipsis: true })
-  return y + 82
+  if (isNewStore) {
+    const storeFields = [
+      ['NIT/CC', quote.store.nit],
+      ['Dirección', quote.store.address],
+      ['Ciudad', quote.store.city],
+      ['Teléfono', quote.store.phone],
+      ['Contacto', quote.store.contactName],
+    ]
+    storeFields.forEach(([label, value], index) => {
+      doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(`${label}: ${value || ''}`, margin + 12, y + 41 + index * 11, { width: contentWidth - 24, lineBreak: false })
+    })
+  } else {
+    const storeLines = nonEmpty([
+      quote.store.nit && `NIT/CC: ${quote.store.nit}`,
+      quote.store.address,
+      quote.store.city,
+      quote.store.phone && `Tel. ${quote.store.phone}`,
+      quote.store.contactName && `Contacto: ${quote.store.contactName}`,
+    ])
+    doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(storeLines.join('  ·  '), margin + 12, y + 42, { width: contentWidth - 24, height: 18, ellipsis: true })
+  }
+  return y + customerBoxHeight + 16
 }
 
 function drawTableHeader(doc, margin, y, widths) {

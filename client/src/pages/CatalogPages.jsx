@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
+import { AlertModal } from '../components/AlertModal'
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const emptyStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
@@ -26,9 +27,8 @@ function SelectField({ label, name, value, onChange, children, ...props }) {
   return <Field label={label}><select name={name} value={value} onChange={onChange} {...props} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{children}</select></Field>
 }
 
-function Notice({ message, error = false }) {
-  if (!message) return null
-  return <div role="status" className={`mb-4 rounded-xl border px-4 py-3 text-sm ${error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{message}</div>
+function Notice({ message, error = false, onClose }) {
+  return <AlertModal message={message} variant={error ? 'error' : 'success'} onClose={onClose} />
 }
 
 function getError(error, fallback) { return error.response?.data?.error?.message || fallback }
@@ -109,7 +109,7 @@ export function StoresPage() {
           <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, NIT, ciudad o contacto" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
-        <Notice message={message} error={error} />
+        <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando almacenes…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay almacenes para mostrar.</p> : <div className="space-y-3">
           {filtered.map((store) => <article key={store._id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -188,7 +188,7 @@ export function CheesesPage() {
           <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre del queso" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
-        <Notice message={message} error={error} />
+        <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando productos…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay productos para mostrar.</p> : <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((cheese) => <article key={cheese._id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex items-start justify-between gap-2"><div><h2 className="font-bold">{cheese.name}</h2><p className="mt-1 text-sm text-slate-600">{cheese.description || 'Sin descripción'} · {cheese.unit === 'kg' ? 'Kilogramo' : 'Unidad'}</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${cheese.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{cheese.isActive ? 'Activo' : 'Inactivo'}</span></div>
@@ -269,8 +269,8 @@ export function PricesPage() {
       const endpoint = scope === 'general' ? '/prices/general' : '/prices'
       const body = scope === 'general' ? { updates } : { storeId, updates }
       const { data } = await api.put(endpoint, body)
-      setMessage(`Precios guardados. ${data.data.changed} cambio(s) registrado(s) en el historial.`)
       await Promise.all([loadMatrix(), loadHistory()])
+      setMessage(`Precios guardados correctamente. ${data.data.changed} cambio(s) registrado(s) en el historial.`)
     } catch (requestError) { setMessage(getError(requestError, 'No se pudieron guardar los precios.')); setError(true) }
     finally { setSaving(false) }
   }
@@ -294,7 +294,7 @@ export function PricesPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
-        <Notice message={message} error={error} />
+        <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando matriz de precios…</p> : rows.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega quesos activos para configurar la tarifa.</p> : <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Queso</th><th className="px-3 py-3">Unidad</th><th className="px-3 py-3">Precio actual</th><th className="px-3 py-3">Nuevo precio COP</th></tr></thead>
