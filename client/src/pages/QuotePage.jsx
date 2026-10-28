@@ -50,6 +50,7 @@ export function QuotePage() {
   const [items, setItems] = useState([])
   const [newStore, setNewStore] = useState(emptyNewStore)
   const [selectedCheeseId, setSelectedCheeseId] = useState('')
+  const [draftUnitPrice, setDraftUnitPrice] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(currentBogotaDate)
@@ -96,6 +97,7 @@ export function QuotePage() {
 
   const selectedCheese = useMemo(() => cheeses.find((cheese) => cheese._id === selectedCheeseId), [cheeses, selectedCheeseId])
   const selectedPrice = selectedCheese ? prices.get(selectedCheese._id)?.price : null
+  useEffect(() => { setDraftUnitPrice(selectedPrice == null ? '' : String(selectedPrice)) }, [selectedCheeseId, selectedPrice, mode])
   const previewTotal = items.reduce((sum, item) => sum + lineTotal(item.unitPrice, toMilli(item.quantity) || 0), 0)
   const newStoreValid = newStore.name.trim().length >= 2 && newStore.address.trim().length >= 2 && newStore.city.trim().length >= 2
   const canSave = items.length > 0 && !loadingPrices && !saving && (mode === 'registered' ? Boolean(storeId) : newStoreValid)
@@ -113,19 +115,28 @@ export function QuotePage() {
     setMessage('')
     if (!selectedCheese) { setError('Selecciona un tipo de queso.'); return }
     const row = prices.get(selectedCheese._id)
-    if (row?.price == null) { setError(`No hay precio configurado para ${selectedCheese.name} en este destino.`); return }
+    let price
+    if (mode === 'new') {
+      price = Number(draftUnitPrice)
+      if (!Number.isSafeInteger(price) || price < 1 || price > 1_000_000_000) {
+        setError('Ingresa un precio unitario entero en pesos colombianos, mayor que cero.')
+        return
+      }
+    } else {
+      if (row?.price == null) { setError(`No hay precio configurado para ${selectedCheese.name} en este almacén.`); return }
+      price = row.price
+    }
     const quantityMilli = toMilli(quantity)
     if (!quantityMilli || (selectedCheese.unit === 'und' && quantityMilli % 1000 !== 0)) {
       setError(selectedCheese.unit === 'und' ? 'La cantidad de unidades debe ser un entero positivo.' : 'Ingresa una cantidad positiva con máximo 3 decimales.')
       return
     }
-    const price = row.price
     if (lineTotal(price, quantityMilli) < 1) { setError('La cantidad produce un subtotal menor a $1 COP.'); return }
     setItems((current) => {
       const existing = current.find((item) => item.cheeseId === selectedCheese._id)
       if (!existing) return [...current, { cheeseId: selectedCheese._id, name: selectedCheese.name, unit: selectedCheese.unit, unitPrice: price, quantity: fromMilli(quantityMilli) }]
       const combined = (toMilli(existing.quantity) || 0) + quantityMilli
-      return current.map((item) => item.cheeseId === selectedCheese._id ? { ...item, quantity: fromMilli(combined) } : item)
+      return current.map((item) => item.cheeseId === selectedCheese._id ? { ...item, unitPrice: price, quantity: fromMilli(combined) } : item)
     })
     setQuantity('1')
   }
@@ -152,7 +163,7 @@ export function QuotePage() {
     const payload = {
       storeMode: mode,
       ...(mode === 'registered' ? { storeId } : { newStore }),
-      items: items.map(({ cheeseId, quantity: amount }) => ({ cheeseId, quantity: amount })),
+      items: items.map(({ cheeseId, quantity: amount, unitPrice }) => ({ cheeseId, quantity: amount, ...(mode === 'new' ? { unitPrice } : {}) })),
       notes,
       date,
     }
@@ -160,20 +171,20 @@ export function QuotePage() {
       const { data } = await api.post('/quotes', payload)
       const quote = data.data
       setSavedQuote(quote)
-      setMessage(`Cotización ${quote.number} guardada. Guardando PDF en Google Drive…`)
+      setMessage(`Factura ${quote.number} guardada. Guardando PDF en Google Drive…`)
       setItems([])
       setDriveBusy(true)
       try {
         const upload = await api.post(`/quotes/${quote._id}/drive`)
         const updatedQuote = { ...quote, driveFile: upload.data.data.driveFile }
         setSavedQuote(updatedQuote)
-        setMessage(`Cotización ${quote.number} guardada y PDF enviado a Google Drive.`)
+        setMessage(`Factura ${quote.number} guardada y PDF enviado a Google Drive.`)
       } catch (driveError) {
-        setError(driveError.response?.data?.error?.message || 'La cotización se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.')
-        setMessage(`Cotización ${quote.number} guardada.`)
+        setError(driveError.response?.data?.error?.message || 'La factura se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.')
+        setMessage(`Factura ${quote.number} guardada.`)
       } finally { setDriveBusy(false) }
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'No se pudo guardar la cotización.')
+      setError(requestError.response?.data?.error?.message || 'No se pudo guardar la factura.')
     } finally { setSaving(false) }
   }
 
@@ -228,7 +239,7 @@ export function QuotePage() {
     <section className="mx-auto max-w-3xl rounded-3xl bg-white p-6 shadow-card sm:p-10">
       <Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link>
       <div className="mt-8 rounded-2xl bg-emerald-50 p-6 text-center">
-        <p className="text-sm font-bold uppercase tracking-wider text-emerald-700">Cotización guardada</p>
+        <p className="text-sm font-bold uppercase tracking-wider text-emerald-700">Factura guardada</p>
         <h1 className="mt-2 text-3xl font-extrabold">{savedQuote.number}</h1>
         <p className="mt-3 text-2xl font-extrabold text-brand-dark">{money.format(savedQuote.total)}</p>
         <p className="mt-2 text-sm text-slate-600">{savedQuote.store.name} · {savedQuote.store.city}</p>
@@ -242,21 +253,21 @@ export function QuotePage() {
         <button type="button" onClick={() => openQuotePdf(true)} disabled={pdfBusy} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">Imprimir</button>
       </div>
       {savedQuote.driveFile?.id ? <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a> : <button type="button" onClick={savePdfToDrive} disabled={driveBusy} className="mt-3 w-full rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{driveBusy ? 'Guardando en Google Drive…' : 'Guardar PDF en Google Drive'}</button>}
-      <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Nueva cotización</button>
+      <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
     </section>
   </main>
 
   return <main className="min-h-screen bg-primary px-4 py-6 pb-36 text-ink sm:px-8 sm:py-10 sm:pb-36">
     <header className="mx-auto mb-6 flex max-w-6xl items-center justify-between">
-      <div><Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Nueva cotización</h1><p className="mt-1 text-sm text-slate-600">Un solo cotizador para almacenes registrados y nuevos.</p></div>
+      <div><Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Crear factura</h1><p className="mt-1 text-sm text-slate-600">Selecciona un almacén específico o crea esta factura para un almacén nuevo.</p></div>
     </header>
     <section className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-          <h2 className="text-lg font-extrabold">Destino de la cotización</h2>
+          <h2 className="text-lg font-extrabold">Destino de la factura</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button type="button" aria-pressed={mode === 'registered'} onClick={() => setDestination('registered')} className={`rounded-xl border p-4 text-left transition ${mode === 'registered' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Almacén registrado</span><span className="mt-1 block text-sm text-slate-600">Seleccionar del catálogo y usar su tarifa particular.</span></button>
-            <button type="button" aria-pressed={mode === 'new'} onClick={() => setDestination('new')} className={`rounded-xl border p-4 text-left transition ${mode === 'new' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Almacén nuevo</span><span className="mt-1 block text-sm text-slate-600">Datos solo para esta factura; usará la tarifa general.</span></button>
+            <button type="button" aria-pressed={mode === 'registered'} onClick={() => setDestination('registered')} className={`rounded-xl border p-4 text-left transition ${mode === 'registered' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Almacén específico</span><span className="mt-1 block text-sm text-slate-600">Elige un almacén del catálogo y se aplicarán sus precios.</span></button>
+            <button type="button" aria-pressed={mode === 'new'} onClick={() => setDestination('new')} className={`rounded-xl border p-4 text-left transition ${mode === 'new' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Nuevo (solo esta factura)</span><span className="mt-1 block text-sm text-slate-600">No se registra en almacenes; puedes ajustar el precio base por producto.</span></button>
           </div>
           {mode === 'registered' ? <div className="mt-4">
             {stores.length ? <Field label="Almacén"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay almacenes registrados activos. Puedes crear esta factura con datos de un almacén nuevo.</p>}
@@ -268,24 +279,26 @@ export function QuotePage() {
             <Input label="Teléfono" name="phone" value={newStore.phone} onChange={updateNewStore} maxLength={40} />
             <Input label="Correo" type="email" name="email" value={newStore.email} onChange={updateNewStore} maxLength={254} />
             <Input label="Persona de contacto" name="contactName" value={newStore.contactName} onChange={updateNewStore} maxLength={120} />
-            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark sm:col-span-2">Estos datos quedan como snapshot de esta cotización; el almacén no se agrega al catálogo.</p>
+            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark sm:col-span-2">Estos datos se guardan únicamente en esta factura; el almacén no se agrega al catálogo.</p>
           </div>}
         </article>
 
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
           <h2 className="text-lg font-extrabold">Agregar queso</h2>
           {loadingPrices && <p className="mt-3 text-sm text-slate-500">Cargando precios…</p>}
-          {!loadingPrices && <div className="mt-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
-            <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{cheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? ' · sin precio' : ''}</option> })}</select></Field>
+          {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
+            <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{cheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
+            {mode === 'new' && <Input label="Precio unitario COP" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder="Ej. 25000" />}
             <Input label={`Cantidad${selectedCheese ? ` (${selectedCheese.unit})` : ''}`} name="quantity" type="text" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={selectedCheese?.unit === 'und' ? '1' : '1.250'} />
-            <button type="button" onClick={addItem} disabled={!selectedCheese || selectedPrice == null || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
+            <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
           </div>}
-          {selectedCheese && <p className="mt-3 text-sm text-slate-600">Precio unitario: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este destino' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
+          {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del almacén: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este destino' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
+          {mode === 'new' && <p className="mt-3 text-sm text-slate-600">El precio base se carga automáticamente si existe. Puedes ajustarlo para esta factura; el cambio no modifica el catálogo de precios.</p>}
           {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay tipos de queso activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Quesos</Link>.</p>}
         </article>
 
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-          <h2 className="text-lg font-extrabold">Productos de la cotización</h2>
+          <h2 className="text-lg font-extrabold">Productos de la factura</h2>
           {items.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega uno o más quesos para calcular el total.</p> : <div className="mt-3 divide-y divide-slate-100">
             {items.map((item) => {
               const milli = toMilli(item.quantity) || 0
@@ -315,7 +328,7 @@ export function QuotePage() {
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(11,18,51,0.08)] backdrop-blur sm:px-8">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total estimado</p><p className="text-2xl font-extrabold text-brand-dark">{money.format(previewTotal)}</p><p className="hidden text-xs text-slate-500 sm:block">El servidor vuelve a calcular precios y total al guardar.</p></div>
-        <button type="button" onClick={saveQuote} disabled={!canSave} className="min-w-40 rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar cotización'}</button>
+        <button type="button" onClick={saveQuote} disabled={!canSave} className="min-w-40 rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar factura'}</button>
       </div>
     </div>
   </main>

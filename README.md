@@ -30,12 +30,12 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 - CRUD autenticado de quesos y almacenes; solo `admin` puede crear, editar o desactivar. Las bajas son lógicas para conservar referencias.
 - Matriz de tarifas particulares por queso y almacén, y una tarifa general por queso para facturas de almacenes nuevos. El vendedor consulta, pero no cambia precios.
 - Cambios de precios en lote dentro de una transacción MongoDB, con historial de valor anterior/nuevo, usuario y fecha.
-- El cotizador tiene una sola pantalla: selecciona un almacén registrado o permite ingresar los datos de uno nuevo sin guardarlo en el catálogo. Para el segundo caso usa la tarifa general; nunca pide al vendedor que escriba el precio del queso.
+- El cotizador tiene una sola pantalla: selecciona un almacén registrado o permite ingresar los datos de uno nuevo sin guardarlo en el catálogo. Para el segundo caso propone la tarifa general y permite ajustar cada precio solo para esa cotización; esos ajustes no cambian las tarifas guardadas.
 
 ## Fase 5 — Cotizador
 
 - Una sola pantalla ofrece ambas opciones de destino: almacén registrado (tarifa particular) o almacén nuevo (snapshot solo en la cotización y tarifa general).
-- El vendedor agrega queso y cantidad; solo se muestran precios ya configurados. Las cantidades de kg admiten hasta tres decimales y las unidades deben ser enteras.
+- El vendedor agrega queso y cantidad. Para almacenes registrados se usa la tarifa particular; para almacenes nuevos se propone la tarifa general y se puede ajustar el precio por línea solo en esa cotización. Las cantidades de kg admiten hasta tres decimales y las unidades deben ser enteras.
 - La API consulta el catálogo y recalcula precios, subtotales y total usando aritmética entera; no acepta precios ni totales del navegador.
 - El consecutivo `QSF-000001` se asigna con contador atómico dentro de una transacción MongoDB. La cotización congela nombre, unidad, precio y subtotal de cada línea.
 - Vendedores solo consultan sus cotizaciones; administración puede consultar todas.

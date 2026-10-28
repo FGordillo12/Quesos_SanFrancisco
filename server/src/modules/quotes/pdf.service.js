@@ -52,7 +52,7 @@ function renderThermal(doc, quote, company, profile) {
   y += 8
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()
   y += 9
-  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 1).text('COTIZACIÓN', contentX, y, { width: contentWidth, align: 'center' })
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 1).text('FACTURA DE VENTA', contentX, y, { width: contentWidth, align: 'center' })
   y = doc.y + 5
   doc.font('Helvetica-Bold').fontSize(baseSize).text(quote.number, contentX, y, { width: contentWidth, align: 'center' })
   y = doc.y + 3
@@ -124,13 +124,13 @@ function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, conti
   }
   const infoX = margin + contentWidth * 0.63
   const infoWidth = contentWidth * 0.37
-  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(19).text(continuation ? 'COTIZACIÓN' : 'COTIZACIÓN', infoX, y + 2, { width: infoWidth, align: 'right' })
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(19).text('FACTURA DE VENTA', infoX, y + 2, { width: infoWidth, align: 'right' })
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.number, infoX, doc.y + 4, { width: infoWidth, align: 'right' })
   doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(dateFormatter.format(new Date(quote.date)), infoX, doc.y + 3, { width: infoWidth, align: 'right' })
   y = Math.max(y + 74, companyY + 8, doc.y + 16)
 
   doc.roundedRect(margin, y, contentWidth, 66, 7).fill(PALE)
-  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(8).text('COTIZADO A', margin + 12, y + 9)
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(8).text('CLIENTE', margin + 12, y + 9)
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.store.name, margin + 12, y + 23, { width: contentWidth - 24 })
   const storeLines = nonEmpty([
     quote.store.nit && `NIT/CC: ${quote.store.nit}`,
@@ -231,7 +231,7 @@ export function generateQuotePdf(quote, companySettings, printProfile = quote.pr
   const thermal = profile.format !== 'letter'
   const widthMm = profile.format === 'thermal58' ? 58 : 80
   const size = thermal ? [mmToPt(widthMm), thermalHeight(quote)] : 'LETTER'
-  const doc = new PDFDocument({ size, margin: 0, compress: true, bufferPages: !thermal, info: { Title: `Cotización ${quote.number}`, Author: company.name } })
+  const doc = new PDFDocument({ size, margin: 0, compress: true, bufferPages: !thermal, info: { Title: `Factura ${quote.number}`, Author: company.name } })
 
   return new Promise((resolve, reject) => {
     const chunks = []

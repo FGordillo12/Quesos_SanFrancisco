@@ -83,9 +83,10 @@ export async function createQuote({ input, userId }) {
   }).lean()
   const priceByCheese = new Map(prices.map((price) => [String(price.cheese), price.price]))
 
-  const items = input.items.map(({ cheeseId, quantity }) => {
+  const items = input.items.map(({ cheeseId, quantity, unitPrice: requestedUnitPrice }) => {
     const cheese = cheeseById.get(String(cheeseId))
-    const unitPrice = priceByCheese.get(String(cheeseId))
+    const basePrice = priceByCheese.get(String(cheeseId))
+    const unitPrice = destination.scope === 'general' && requestedUnitPrice != null ? requestedUnitPrice : basePrice
     if (unitPrice == null) fail(400, 'PRICE_NOT_DEFINED', `No hay precio configurado para ${cheese.name} en el destino seleccionado.`)
     const parsedQuantity = parseQuantity(quantity, cheese.unit)
     const lineTotal = calculateLineTotal(unitPrice, parsedQuantity.milli)

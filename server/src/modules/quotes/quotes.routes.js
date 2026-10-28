@@ -18,8 +18,10 @@ const itemSchema = z.object({
   cheeseId: objectId,
   quantity: z.string().regex(/^\d{1,7}(?:\.\d{1,3})?$/),
 }).strict()
+const newStoreItemSchema = itemSchema.extend({
+  unitPrice: z.number().int().min(1).max(1_000_000_000).optional(),
+}).strict()
 const sharedQuoteFields = {
-  items: z.array(itemSchema).min(1).max(50),
   notes: z.string().trim().max(1000).optional().default(''),
   date: dateString.optional(),
 }
@@ -33,8 +35,8 @@ const newStoreSchema = z.object({
   contactName: z.string().trim().max(120).optional().default(''),
 }).strict()
 const createQuoteSchema = z.discriminatedUnion('storeMode', [
-  z.object({ storeMode: z.literal('registered'), storeId: objectId, ...sharedQuoteFields }).strict(),
-  z.object({ storeMode: z.literal('new'), newStore: newStoreSchema, ...sharedQuoteFields }).strict(),
+  z.object({ storeMode: z.literal('registered'), storeId: objectId, items: z.array(itemSchema).min(1).max(50), ...sharedQuoteFields }).strict(),
+  z.object({ storeMode: z.literal('new'), newStore: newStoreSchema, items: z.array(newStoreItemSchema).min(1).max(50), ...sharedQuoteFields }).strict(),
 ])
 const listQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
