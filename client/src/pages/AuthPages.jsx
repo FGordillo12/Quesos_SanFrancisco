@@ -73,17 +73,41 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { signIn } = useAuth()
   const [notice, setNotice] = useState('')
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [attemptEmail, setAttemptEmail] = useState('')
   const form = useForm({ resolver: zodResolver(loginSchema), defaultValues: { email: '', password: '', rememberMe: false } })
   const submit = form.handleSubmit(async (values) => {
     setNotice('')
-    try { await signIn(values); navigate('/', { replace: true }) }
-    catch (error) { setNotice(getError(error, 'Credenciales inválidas.')) }
+    const normalizedEmail = values.email.trim().toLowerCase()
+    const previousAttempts = attemptEmail === normalizedEmail ? failedAttempts : 0
+    if (attemptEmail !== normalizedEmail) {
+      setAttemptEmail(normalizedEmail)
+      setFailedAttempts(0)
+    }
+    try {
+      await signIn(values)
+      setFailedAttempts(0)
+      navigate('/', { replace: true })
+    } catch (error) {
+      const code = error.response?.data?.error?.code
+      if (code === 'INVALID_CREDENTIALS') {
+        const nextAttempts = previousAttempts + 1
+        setFailedAttempts(nextAttempts)
+        const attemptMessage = nextAttempts >= 5
+          ? `Este formulario registra ${nextAttempts} fallos. Si la cuenta existe, el servidor la bloqueará temporalmente durante 15 minutos al alcanzar 5 fallos.`
+          : `Este formulario registra ${nextAttempts} ${nextAttempts === 1 ? 'fallo' : 'fallos'}. El bloqueo temporal es de 15 minutos tras 5 fallos; intentos anteriores pueden hacer que se active antes.`
+        setNotice(`${getError(error, 'Credenciales inválidas.')} ${attemptMessage}`)
+      } else {
+        setNotice(getError(error, 'No se pudo iniciar sesión. Inténtalo de nuevo.'))
+      }
+    }
   })
 
   return <AuthLayout title="Iniciar sesión" subtitle="Ingresa a tu espacio de trabajo.">
     <form onSubmit={submit} className="space-y-5" noValidate>
       <FormInput label="Correo electrónico" type="email" autoComplete="email" inputMode="email" {...form.register('email')} error={form.formState.errors.email?.message} />
       <PasswordInput label="Contraseña" autoComplete="current-password" {...form.register('password')} error={form.formState.errors.password?.message} />
+      <Notice>Por seguridad, 5 intentos fallidos pueden bloquear temporalmente la cuenta durante 15 minutos.</Notice>
       <div className="flex items-center justify-between gap-3 text-sm">
         <label className="flex items-center gap-2 text-slate-700"><input type="checkbox" className="h-4 w-4 accent-brand" {...form.register('rememberMe')} /> Recordarme</label>
         <Link className="font-semibold text-brand hover:text-brand-dark" to="/forgot-password">¿Olvidaste tu contraseña?</Link>
