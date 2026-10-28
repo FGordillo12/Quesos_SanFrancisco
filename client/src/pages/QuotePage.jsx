@@ -189,20 +189,8 @@ export function QuotePage() {
       const quote = data.data
       setSavedQuote(quote)
       setFeedback({ variant: 'success', message: `La factura ${quote.number} se guardó correctamente.` })
-      setMessage(`Factura ${quote.number} guardada. Guardando PDF en Google Drive…`)
+      setMessage(`Factura ${quote.number} guardada. Al descargar el PDF se guardará automáticamente en Google Drive. Se eliminará un mes después.`)
       setItems([])
-      setDriveBusy(true)
-      try {
-        const upload = await api.post(`/quotes/${quote._id}/drive`)
-        const updatedQuote = { ...quote, driveFile: upload.data.data.driveFile }
-        setSavedQuote(updatedQuote)
-        setMessage(`Factura ${quote.number} guardada y PDF enviado a Google Drive.`)
-      } catch (driveError) {
-        const message = driveError.response?.data?.error?.message || 'La factura se guardó, pero no se pudo guardar su PDF en Google Drive. Puedes reintentar desde esta pantalla.'
-        setError(message)
-        setFeedback({ variant: 'error', message })
-        setMessage(`Factura ${quote.number} guardada.`)
-      } finally { setDriveBusy(false) }
     } catch (requestError) {
       const message = requestError.response?.data?.error?.message || 'No se pudo guardar la factura.'
       setError(message)
@@ -216,6 +204,11 @@ export function QuotePage() {
     if (print && !printWindow) { setError('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes e inténtalo de nuevo.'); return }
     setPdfBusy(true)
     try {
+      if (!print) {
+        setDriveBusy(true)
+        const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
+        setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
+      }
       const { data } = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
       const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
       if (printWindow) {
@@ -226,6 +219,8 @@ export function QuotePage() {
         anchor.href = url
         anchor.download = `${savedQuote.number}.pdf`
         document.body.appendChild(anchor); anchor.click(); anchor.remove()
+        setMessage(`Factura ${savedQuote.number} descargada y guardada en Google Drive.`)
+        setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó y guardó correctamente en Google Drive.` })
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (requestError) {
@@ -233,22 +228,7 @@ export function QuotePage() {
       const message = requestError.response?.data?.error?.message || 'No se pudo generar el PDF.'
       setError(message)
       setFeedback({ variant: 'error', message })
-    } finally { setPdfBusy(false) }
-  }
-
-  async function savePdfToDrive() {
-    setError('')
-    setDriveBusy(true)
-    try {
-      const { data } = await api.post(`/quotes/${savedQuote._id}/drive`)
-      setSavedQuote((current) => ({ ...current, driveFile: data.data.driveFile }))
-      setMessage('PDF guardado en Google Drive.')
-      setFeedback({ variant: 'success', message: 'El PDF de la factura se guardó correctamente en Google Drive.' })
-    } catch (requestError) {
-      const message = requestError.response?.data?.error?.message || 'No se pudo guardar el PDF en Google Drive.'
-      setError(message)
-      setFeedback({ variant: 'error', message })
-    } finally { setDriveBusy(false) }
+    } finally { setPdfBusy(false); setDriveBusy(false) }
   }
 
   function startNewQuote() {
@@ -277,10 +257,10 @@ export function QuotePage() {
       </div>
       {error && <ErrorNotice>{error}</ErrorNotice>}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => openQuotePdf(false)} disabled={pdfBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand hover:bg-primary disabled:opacity-50">{pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
+        <button type="button" onClick={() => openQuotePdf(false)} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand hover:bg-primary disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
         <button type="button" onClick={() => openQuotePdf(true)} disabled={pdfBusy} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">Imprimir</button>
       </div>
-      {savedQuote.driveFile?.id ? <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a> : <button type="button" onClick={savePdfToDrive} disabled={driveBusy} className="mt-3 w-full rounded-xl border border-slate-300 px-5 py-3 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{driveBusy ? 'Guardando en Google Drive…' : 'Guardar PDF en Google Drive'}</button>}
+      {savedQuote.driveFile?.id && <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
     </section>
     <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {

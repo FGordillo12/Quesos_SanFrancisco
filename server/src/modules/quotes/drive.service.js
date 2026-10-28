@@ -6,6 +6,7 @@ import { decryptDriveRefreshToken } from '../drive/token-crypto.js'
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files'
+const DRIVE_FILES_URL = 'https://www.googleapis.com/drive/v3/files'
 let cachedToken = null
 
 function driveError(code, message, status = 503) {
@@ -112,4 +113,23 @@ export async function uploadQuotePdf({ quote, pdf }) {
     throw driveError('DRIVE_UPLOAD_FAILED', 'Google Drive no pudo guardar el PDF. Verifica que la cuenta de servicio tenga permiso de editor y que el destino admita archivos nuevos.', 502)
   }
   return { id: data.id, webViewLink: data.webViewLink || '' }
+}
+
+export async function deleteQuotePdf(fileId) {
+  if (typeof fileId !== 'string' || !fileId) return
+  const accessToken = await getAccessToken()
+  const url = `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?supportsAllDrives=true`
+  let response
+  try {
+    response = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(20_000),
+    })
+  } catch {
+    throw driveError('DRIVE_DELETE_FAILED', 'No se pudo conectar con Google Drive para eliminar una factura vencida.', 502)
+  }
+  if (!response.ok && response.status !== 404 && response.status !== 410) {
+    throw driveError('DRIVE_DELETE_FAILED', 'Google Drive no permitió eliminar una factura vencida.', 502)
+  }
 }
