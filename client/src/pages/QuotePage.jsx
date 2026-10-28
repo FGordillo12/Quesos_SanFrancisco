@@ -217,7 +217,8 @@ export function QuotePage() {
         const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
         setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
       }
-      const { data } = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
+      const pdfResponse = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
+      const { data } = pdfResponse
       const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
       if (printWindow) {
         printWindow.location.href = url
@@ -225,7 +226,9 @@ export function QuotePage() {
       } else {
         const anchor = document.createElement('a')
         anchor.href = url
-        anchor.download = `${savedQuote.number}.pdf`
+        const disposition = pdfResponse.headers['content-disposition'] || ''
+        const serverFilename = disposition.match(/filename="([^"]+)"/i)?.[1]
+        anchor.download = serverFilename || savedQuote.pdfFileName || `${savedQuote.number}.pdf`
         document.body.appendChild(anchor); anchor.click(); anchor.remove()
         setMessage(`Factura ${savedQuote.number} descargada y guardada en Google Drive.`)
         setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó y guardó correctamente en Google Drive.` })

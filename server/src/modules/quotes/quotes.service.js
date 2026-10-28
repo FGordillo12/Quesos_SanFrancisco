@@ -5,6 +5,7 @@ import { Store } from '../catalog/models/Store.js'
 import { Counter } from './models/Counter.js'
 import { Quote } from './models/Quote.js'
 import { getOrCreateCompanySettings } from '../settings/settings.service.js'
+import { quotePdfFilename } from './pdf-filename.js'
 
 const MAX_QUANTITY_MILLI = 1_000_000_000
 
@@ -134,7 +135,7 @@ export async function createQuote({ input, userId }) {
         total,
         notes: input.notes || '',
         printProfile,
-        pdfFileName: `${number}.pdf`,
+        pdfFileName: quotePdfFilename({ store: destination.snapshot, number }),
         createdBy: userId,
       }], { session })
       quote = documents[0]

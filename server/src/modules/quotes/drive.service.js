@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken'
 import { randomUUID } from 'node:crypto'
 import { env } from '../../config/env.js'
+import { logger } from '../../lib/logger.js'
 import { CompanySettings } from '../settings/models/CompanySettings.js'
 import { decryptDriveRefreshToken } from '../drive/token-crypto.js'
+import { quotePdfFilename } from './pdf-filename.js'
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files'
@@ -79,7 +81,7 @@ export async function uploadQuotePdf({ quote, pdf }) {
   const accessToken = await getAccessToken()
   const boundary = `qsf_${randomUUID().replaceAll('-', '')}`
   const metadata = {
-    name: `${quote.number}.pdf`,
+    name: quotePdfFilename(quote),
     mimeType: 'application/pdf',
     description: `Cotización ${quote.number} · Quesos San Francisco`,
   }
@@ -109,10 +111,23 @@ export async function uploadQuotePdf({ quote, pdf }) {
   const data = await response.json().catch(() => ({}))
   if (!response.ok || typeof data.id !== 'string') {
     const reason = data.error?.errors?.[0]?.reason
+    logger.error({
+      status: response.status,
+      reason: reason || '',
+      googleStatus: data.error?.status || '',
+      googleMessage: String(data.error?.message || '').slice(0, 300),
+      authMethod: env.googleOAuth ? 'oauth' : 'service_account',
+    }, 'Google Drive rechazó la subida de una factura')
     if (reason === 'storageQuotaExceeded' && !env.googleOAuth) {
       throw driveError('DRIVE_SERVICE_ACCOUNT_NO_QUOTA', 'Google no permite a las cuentas de servicio guardar archivos en Mi unidad porque no tienen cuota propia. Para ese destino se requiere OAuth con una cuenta de usuario; la alternativa es una unidad compartida.', 502)
     }
-    throw driveError('DRIVE_UPLOAD_FAILED', 'Google Drive no pudo guardar el PDF. Verifica que la cuenta de servicio tenga permiso de editor y que el destino admita archivos nuevos.', 502)
+    if (env.googleOAuth && response.status === 403) {
+      throw driveError('DRIVE_OAUTH_PERMISSION_DENIED', 'Google rechazó el permiso para guardar en Mi unidad. Ve a Empresa e impresión, desconecta Google Drive y vuelve a conectarlo aceptando el acceso solicitado.', 502)
+    }
+    if (reason === 'storageQuotaExceeded') {
+      throw driveError('DRIVE_STORAGE_FULL', 'No se pudo guardar el PDF porque la cuenta de Google Drive alcanzó su límite de almacenamiento.', 502)
+    }
+    throw driveError('DRIVE_UPLOAD_FAILED', `Google Drive rechazó el PDF (HTTP ${response.status}${reason ? `, ${reason}` : ''}). Revisa la conexión de Drive y vuelve a intentarlo.`, 502)
   }
   return { id: data.id, webViewLink: data.webViewLink || '' }
 }

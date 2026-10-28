@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAuth } from '../auth/auth.middleware.js'
 import { createQuote, getQuote, listQuotes } from './quotes.service.js'
 import { generateQuotePdf } from './pdf.service.js'
+import { quotePdfFilename } from './pdf-filename.js'
 import { getOrCreateCompanySettings } from '../settings/settings.service.js'
 import { Quote } from './models/Quote.js'
 import { uploadQuotePdf } from './drive.service.js'
@@ -96,7 +97,7 @@ quotesRouter.get('/:id/pdf', parse(idParams, 'params'), async (req, res, next) =
     const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment'
     const settings = await getOrCreateCompanySettings()
     const pdf = await generateQuotePdf(quote, settings, settings.printProfile)
-    const filename = `${quote.number}.pdf`
+    const filename = quotePdfFilename(quote)
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="${filename}"`, 'Cache-Control': 'no-store', 'Content-Length': String(pdf.length) })
     return res.send(pdf)
   } catch (error) { return next(error) }
