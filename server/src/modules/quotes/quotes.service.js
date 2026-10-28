@@ -47,6 +47,7 @@ async function resolveStore(input) {
     return {
       scope: 'store',
       storeId: store._id,
+      excludedCheeses: store.excludedCheeses || [],
       snapshot: {
         mode: 'registered', storeId: store._id, name: store.name, nit: store.nit || '',
         address: store.address, city: store.city, phone: store.phone || '', email: store.email || '',
@@ -75,6 +76,12 @@ export async function createQuote({ input, userId }) {
   const destination = await resolveStore(input)
   const cheeses = await Cheese.find({ _id: { $in: ids }, isActive: true }).lean()
   if (cheeses.length !== ids.length) fail(400, 'INVALID_CHEESE', 'Uno o más quesos no existen o están inactivos.')
+  if (destination.scope === 'store') {
+    const excludedCheeses = new Set(destination.excludedCheeses.map(String))
+    if (ids.some((id) => excludedCheeses.has(String(id)))) {
+      fail(400, 'CHEESE_NOT_AVAILABLE_AT_STORE', 'Este producto no se maneja en el almacén seleccionado.')
+    }
+  }
   const cheeseById = new Map(cheeses.map((cheese) => [String(cheese._id), cheese]))
   const prices = await Price.find({
     scope: destination.scope,

@@ -97,15 +97,23 @@ export function QuotePage() {
     return () => { alive = false }
   }, [mode, storeId])
 
-  const selectedCheese = useMemo(() => cheeses.find((cheese) => cheese._id === selectedCheeseId), [cheeses, selectedCheeseId])
+  const selectedStore = useMemo(() => stores.find((store) => store._id === storeId), [stores, storeId])
+  const availableCheeses = useMemo(() => mode === 'new'
+    ? cheeses
+    : cheeses.filter((cheese) => !selectedStore?.excludedCheeses?.some((id) => String(id) === String(cheese._id))), [cheeses, mode, selectedStore])
+  const selectedCheese = useMemo(() => availableCheeses.find((cheese) => cheese._id === selectedCheeseId), [availableCheeses, selectedCheeseId])
   const selectedPrice = selectedCheese ? prices.get(selectedCheese._id)?.price : null
   useEffect(() => { setDraftUnitPrice(selectedPrice == null ? '' : String(selectedPrice)) }, [selectedCheeseId, selectedPrice, mode])
+  useEffect(() => {
+    if (selectedCheeseId && !availableCheeses.some((cheese) => cheese._id === selectedCheeseId)) setSelectedCheeseId('')
+  }, [availableCheeses, selectedCheeseId])
   const previewTotal = items.reduce((sum, item) => sum + lineTotal(item.unitPrice, toMilli(item.quantity) || 0), 0)
   const canSave = !loadingPrices && !saving && (mode !== 'registered' || Boolean(storeId))
 
   function setDestination(nextMode) {
     setMode(nextMode)
     setItems([])
+    setSelectedCheeseId('')
     setSavedQuote(null)
     setMessage('')
     setError('')
@@ -282,7 +290,7 @@ export function QuotePage() {
             <button type="button" aria-pressed={mode === 'new'} onClick={() => setDestination('new')} className={`rounded-xl border p-4 text-left transition ${mode === 'new' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Nuevo (solo esta factura)</span><span className="mt-1 block text-sm text-slate-600">No se registra en almacenes; puedes ajustar el precio base por producto.</span></button>
           </div>
           {mode === 'registered' ? <div className="mt-4">
-            {stores.length ? <Field label="Almacén"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay almacenes registrados activos. Puedes crear esta factura con datos de un almacén nuevo.</p>}
+            {stores.length ? <Field label="Almacén"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setSelectedCheeseId(''); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay almacenes registrados activos. Puedes crear esta factura con datos de un almacén nuevo.</p>}
           </div> : <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Input label="Nombre del almacén" name="name" value={newStore.name} onChange={updateNewStore} required minLength={2} maxLength={120} id="new-store-name" />
             <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark">Este almacén solo aparecerá en esta factura y no se agregará al catálogo. NIT, dirección, ciudad, teléfono y contacto aparecerán vacíos en el PDF.</p>
@@ -293,7 +301,7 @@ export function QuotePage() {
           <h2 className="text-lg font-extrabold">Agregar queso</h2>
           {loadingPrices && <p className="mt-3 text-sm text-slate-500">Cargando precios…</p>}
           {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
-            <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{cheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
+            <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{availableCheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
             {mode === 'new' && <Input label="Precio unitario COP" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder="Ej. 25000" />}
             <Input label={`Cantidad${selectedCheese ? ` (${selectedCheese.unit})` : ''}`} name="quantity" type="text" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={selectedCheese?.unit === 'und' ? '1' : '1.250'} />
             <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
