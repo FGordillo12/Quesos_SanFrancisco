@@ -7,6 +7,7 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "seed": "node src/seed.js",
+    "seed:initial-stores": "node src/seed-initial-stores.js",
     "test": "node --test"
   },
   "dependencies": {

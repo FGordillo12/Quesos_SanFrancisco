@@ -10,6 +10,7 @@ const products = [
   { name: 'QUESO DOBLE CREMA x 350 gr.', description: 'Queso doble crema, presentación de 350 g.', unit: 'und' },
   { name: 'QUESO DOBLE CREMA x 250 gr.', description: 'Queso doble crema, presentación de 250 g.', unit: 'und' },
   { name: 'QUESO DOBLE CREMA x 800 gr.', description: 'Queso doble crema, presentación de 800 g.', unit: 'und' },
+  { name: 'QUESO CAMPESINO x 250 gr.', description: 'Queso campesino, presentación de 250 g.', unit: 'und' },
   { name: 'QUESO CAMPESINO x 350 gr.', description: 'Queso campesino, presentación de 350 g.', unit: 'und' },
   { name: 'QUESO CAMPESINO x 500 gr.', description: 'Queso campesino, presentación de 500 g.', unit: 'und' },
   { name: 'QUESO CAMPESINO x 1000 gr.', description: 'Queso campesino, presentación de 1000 g.', unit: 'und' },

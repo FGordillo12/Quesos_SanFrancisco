@@ -8,6 +8,7 @@ const storeSchema = new mongoose.Schema({
   phone: { type: String, trim: true, maxlength: 40, default: '' },
   email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
   contactName: { type: String, trim: true, maxlength: 120, default: '' },
+  excludedCheeses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cheese' }],
   isActive: { type: Boolean, default: true },
 }, { timestamps: true, strict: 'throw' })
 

@@ -155,16 +155,20 @@ storeRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), asyn
 })
 
 async function readPriceMatrix(scope, storeId) {
+  let excludedCheeseIds = []
   if (scope === 'store') {
-    const store = await Store.findOne({ _id: storeId, isActive: true }).lean()
+    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses').lean()
     if (!store) {
       const error = new Error('Almacén no encontrado o inactivo.')
       error.status = 404
       error.code = 'STORE_NOT_FOUND'
       throw error
     }
+    excludedCheeseIds = store.excludedCheeses || []
   }
-  const cheeses = await Cheese.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }).lean()
+  const cheeseFilter = { isActive: true }
+  if (excludedCheeseIds.length) cheeseFilter._id = { $nin: excludedCheeseIds }
+  const cheeses = await Cheese.find(cheeseFilter).sort({ sortOrder: 1, name: 1 }).lean()
   const filter = { scope, cheese: { $in: cheeses.map((cheese) => cheese._id) } }
   if (scope === 'store') filter.store = storeId
   const prices = await Price.find(filter).lean()
@@ -191,11 +195,17 @@ async function savePriceBatch({ scope, storeId = null, updates, userId }) {
     throw error
   }
   if (scope === 'store') {
-    const store = await Store.findOne({ _id: storeId, isActive: true })
+    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses')
     if (!store) {
       const error = new Error('Almacén no encontrado o inactivo.')
       error.status = 404
       error.code = 'STORE_NOT_FOUND'
+      throw error
+    }
+    if (ids.some((id) => store.excludedCheeses.some((excludedId) => String(excludedId) === id))) {
+      const error = new Error('Este producto no se maneja en el almacén seleccionado.')
+      error.status = 400
+      error.code = 'CHEESE_NOT_AVAILABLE_AT_STORE'
       throw error
     }
   }
