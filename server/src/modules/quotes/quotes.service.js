@@ -94,6 +94,7 @@ export async function createQuote({ input, userId }) {
     return {
       cheese: cheese._id,
       cheeseName: cheese.name,
+      sortOrder: cheese.sortOrder ?? 10_000,
       quantity: parsedQuantity.normalized,
       quantityMilli: parsedQuantity.milli,
       unit: cheese.unit,
@@ -101,6 +102,7 @@ export async function createQuote({ input, userId }) {
       lineTotal,
     }
   })
+  items.sort((left, right) => left.sortOrder - right.sortOrder || left.cheeseName.localeCompare(right.cheeseName, 'es', { sensitivity: 'base', numeric: true }))
   const totalBig = items.reduce((total, item) => total + BigInt(item.lineTotal), 0n)
   if (totalBig > BigInt(Number.MAX_SAFE_INTEGER)) fail(400, 'TOTAL_TOO_LARGE', 'El total supera el rango permitido.')
   const total = Number(totalBig)

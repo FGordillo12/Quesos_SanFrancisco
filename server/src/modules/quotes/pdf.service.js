@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { Cheese } from '../catalog/models/Cheese.js'
 
 const NAVY = '#0B1233'
 const BRAND = '#0077B6'
@@ -22,30 +23,79 @@ function normalizedProfile(profile = {}) {
 
 function nonEmpty(parts) { return parts.filter((value) => typeof value === 'string' && value.trim()) }
 
-function thermalHeight(quote) {
-  const noteLength = String(quote.notes || '').length
-  return Math.min(20_000, 520 + quote.items.length * 84 + Math.ceil(noteLength / 30) * 14)
+function thermalHeight(quote, company, profile) {
+  const narrow = profile.format === 'thermal58'
+  const baseSize = Math.min(profile.fontSize, narrow ? 10 : 12)
+  const charsPerLine = narrow ? Math.max(20, Math.floor(27 * 9 / baseSize)) : Math.max(34, Math.floor(46 * 10 / baseSize))
+  const lines = (value) => Math.max(1, Math.ceil(String(value || '').length / charsPerLine))
+  const lineHeight = (size) => size * 1.35
+  const margin = mmToPt(profile.marginMm)
+  const logoSize = narrow ? mmToPt(30) : 44
+  let height = margin * 2 + 8 + lineHeight(baseSize + 2) + 3
+
+  if (profile.showLogo && existsSync(LOGO_PATH)) height += logoSize + 7
+  const companyLines = nonEmpty([
+    company.representative && `Representante: ${company.representative}`,
+    company.location,
+    company.nit && `NIT: ${company.nit}`,
+    company.phone && `Tel. ${company.phone}`,
+    company.email,
+  ])
+  height += companyLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0)
+  height += 8 + 9 + lineHeight(baseSize + 1) + 5 + lineHeight(baseSize) + 3 + lineHeight(baseSize - 1) + 8 + 8
+
+  const storeLines = quote.store.mode === 'new'
+    ? [`Almacén: ${quote.store.name}`, `NIT/CC: ${quote.store.nit || ''}`, `Dirección: ${quote.store.address || ''}`, `Ciudad: ${quote.store.city || ''}`, `Teléfono: ${quote.store.phone || ''}`, `Contacto: ${quote.store.contactName || ''}`]
+    : nonEmpty([`Almacén: ${quote.store.name}`, quote.store.nit && `NIT/CC: ${quote.store.nit}`, quote.store.address, quote.store.city, quote.store.phone && `Tel. ${quote.store.phone}`, quote.store.contactName && `Contacto: ${quote.store.contactName}`])
+  height += storeLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0) + 6 + 8 + 8
+
+  for (const item of quote.items) {
+    const detail = `${item.quantity} ${item.unit} × ${cop.format(item.unitPrice)} / ${item.unit}`
+    height += lines(item.cheeseName) * lineHeight(baseSize) + 2
+    height += lines(detail) * lineHeight(baseSize - 1) + 2
+    height += lineHeight(baseSize) + 7
+  }
+
+  height += lineHeight(baseSize + 2) + 10 + 8
+  if (quote.notes) height += lineHeight(baseSize - 1) * (1 + lines(quote.notes)) + 10
+  height += 1 + 8 + lineHeight(baseSize) + 8
+  return Math.min(20_000, Math.ceil(height))
+}
+
+async function orderItemsByCatalog(items) {
+  const itemsNeedingLookup = items.filter((item) => !Number.isFinite(item.sortOrder))
+  const cheeseIds = itemsNeedingLookup.map((item) => item.cheese).filter(Boolean)
+  const catalog = cheeseIds.length
+    ? await Cheese.find({ _id: { $in: cheeseIds } }).select('_id sortOrder').lean()
+    : []
+  const sortOrderById = new Map(catalog.map((cheese) => [String(cheese._id), cheese.sortOrder ?? 10_000]))
+  return [...items].sort((left, right) => {
+    const leftOrder = Number.isFinite(left.sortOrder) ? left.sortOrder : sortOrderById.get(String(left.cheese)) ?? 10_000
+    const rightOrder = Number.isFinite(right.sortOrder) ? right.sortOrder : sortOrderById.get(String(right.cheese)) ?? 10_000
+    const orderDifference = leftOrder - rightOrder
+    return orderDifference || left.cheeseName.localeCompare(right.cheeseName, 'es', { sensitivity: 'base', numeric: true })
+  })
 }
 
 function renderThermal(doc, quote, company, profile) {
-  const widthMm = profile.format === 'thermal58' ? 58 : 80
+  const widthMm = profile.format === 'thermal58' ? 57 : 80
   const pageWidth = mmToPt(widthMm)
   const margin = mmToPt(profile.marginMm)
-  // PT-210: 58 mm roll, 48 mm (136.1 pt / 384 px at 203 dpi) printable area.
+  // PT-210/PT200: 57 mm paper, 48 mm printable width (384 dots at 203 DPI).
   // Center that area on the paper and keep artwork within its 48 mm width.
   const contentWidth = profile.format === 'thermal58' ? mmToPt(48) : pageWidth - margin * 2
-  const contentX = profile.format === 'thermal58' ? mmToPt(5) : margin
-  const baseSize = Math.min(profile.fontSize, widthMm === 58 ? 10 : 12)
+  const contentX = profile.format === 'thermal58' ? mmToPt((57 - 48) / 2) : margin
+  const baseSize = Math.min(profile.fontSize, widthMm === 57 ? 10 : 12)
   let y = margin
 
   if (profile.showLogo && existsSync(LOGO_PATH)) {
-    const logoSize = widthMm === 58 ? mmToPt(30) : 44
+    const logoSize = widthMm === 57 ? mmToPt(30) : 44
     doc.image(LOGO_PATH, contentX + (contentWidth - logoSize) / 2, y, { fit: [logoSize, logoSize] })
     y += logoSize + 7
   }
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 2).text(company.name, contentX, y, { width: contentWidth, align: 'center' })
   y = doc.y + 3
-  for (const line of nonEmpty([company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
+  for (const line of nonEmpty([company.representative && `Representante: ${company.representative}`, company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
     doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth, align: 'center' })
     y = doc.y + 2
   }
@@ -108,10 +158,6 @@ function renderThermal(doc, quote, company, profile) {
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(quote.notes, contentX, y, { width: contentWidth })
     y = doc.y + 8
   }
-  if (company.representative) {
-    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(`Atendió: ${company.representative}`, contentX, y, { width: contentWidth, align: 'center' })
-    y = doc.y + 8
-  }
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
   y += 8
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(baseSize).text('Gracias por preferirnos', contentX, y, { width: contentWidth, align: 'center' })
@@ -128,7 +174,7 @@ function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, conti
   const detailsWidth = pageWidth * 0.52 - (detailsX - margin)
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(15).text(company.name, detailsX, y + 1, { width: detailsWidth })
   let companyY = doc.y + 3
-  for (const line of nonEmpty([company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
+  for (const line of nonEmpty([company.representative && `Representante: ${company.representative}`, company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
     doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(line, detailsX, companyY, { width: detailsWidth })
     companyY = doc.y + 1
   }
@@ -235,10 +281,6 @@ function renderLetter(doc, quote, company, profile) {
     doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(quote.notes, margin, y, { width: contentWidth })
     y = doc.y + 12
   }
-  if (company.representative) {
-    doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(`Atendió: ${company.representative}`, margin, y)
-    y = doc.y + 10
-  }
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text('Gracias por preferirnos', margin, Math.min(y + 6, pageHeight - margin - 25), { width: contentWidth, align: 'center' })
 
   if (doc.bufferedPageRange) {
@@ -253,9 +295,10 @@ function renderLetter(doc, quote, company, profile) {
 export function generateQuotePdf(quote, companySettings, printProfile = quote.printProfile) {
   const profile = normalizedProfile(printProfile)
   const company = companySettings.toObject ? companySettings.toObject() : companySettings
+  const orderedQuotePromise = orderItemsByCatalog(quote.items).then((items) => ({ ...quote, items }))
   const thermal = profile.format !== 'letter'
-  const widthMm = profile.format === 'thermal58' ? 58 : 80
-  const size = thermal ? [mmToPt(widthMm), thermalHeight(quote)] : 'LETTER'
+  const widthMm = profile.format === 'thermal58' ? 57 : 80
+  const size = thermal ? [mmToPt(widthMm), thermalHeight(quote, company, profile)] : 'LETTER'
   const doc = new PDFDocument({ size, margin: 0, compress: true, bufferPages: !thermal, info: { Title: `Factura ${quote.number}`, Author: company.name } })
 
   return new Promise((resolve, reject) => {
@@ -264,9 +307,11 @@ export function generateQuotePdf(quote, companySettings, printProfile = quote.pr
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
     try {
-      if (thermal) renderThermal(doc, quote, company, profile)
-      else renderLetter(doc, quote, company, profile)
-      doc.end()
+      orderedQuotePromise.then((orderedQuote) => {
+        if (thermal) renderThermal(doc, orderedQuote, company, profile)
+        else renderLetter(doc, orderedQuote, company, profile)
+        doc.end()
+      }).catch(reject)
     } catch (error) { reject(error) }
   })
 }

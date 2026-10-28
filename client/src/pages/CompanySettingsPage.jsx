@@ -145,8 +145,8 @@ export function CompanySettingsPage() {
             <label className="text-sm font-semibold">Tamaño de letra<input className={`${input} mt-1.5`} name="fontSize" type="number" min="8" max="14" step="1" value={form.printProfile.fontSize} onChange={setProfile} /></label>
           </div>
           <label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" name="showLogo" checked={form.printProfile.showLogo} onChange={setProfile} /> Incluir logo en el PDF</label>
-          <p className="mt-3 rounded-lg bg-primary p-3 text-xs leading-5 text-brand-dark">Este perfil solo define el formato del PDF y la impresión; no cambia el tamaño ni la distribución de las páginas de la aplicación. Para la GOOJPRT PT-210, selecciona Térmica 58 mm: usa rollo de 58 mm y área imprimible de 48 mm.</p>
-          <p className="mt-3 text-xs leading-5 text-slate-500">El perfil seleccionado se copia al guardar cada cotización. Cambiarlo después solo aplica a las nuevas.</p>
+          <p className="mt-3 rounded-lg bg-primary p-3 text-xs leading-5 text-brand-dark">Este perfil solo define el formato del PDF y la impresión; no cambia el tamaño ni la distribución de las páginas de la aplicación. Para la GOOJPRT PT-210 / PT200, selecciona Térmica 58 mm: papel de 57 mm y área imprimible de 48 mm (384 puntos a 203 DPI).</p>
+          <p className="mt-3 text-xs leading-5 text-slate-500">El perfil se usa únicamente al generar o imprimir un PDF. Cambiarlo también se aplica a las facturas ya guardadas.</p>
         </fieldset>
         {admin ? <button disabled={saving} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar configuración'}</button> : <p className="text-sm text-slate-600">Solo el administrador puede modificar estos datos.</p>}
       </form>

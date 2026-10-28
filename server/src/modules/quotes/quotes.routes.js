@@ -95,7 +95,7 @@ quotesRouter.get('/:id/pdf', parse(idParams, 'params'), async (req, res, next) =
     if (!quote) return sendError(res, 404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada.')
     const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment'
     const settings = await getOrCreateCompanySettings()
-    const pdf = await generateQuotePdf(quote, settings, quote.printProfile || settings.printProfile)
+    const pdf = await generateQuotePdf(quote, settings, settings.printProfile)
     const filename = `${quote.number}.pdf`
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="${filename}"`, 'Cache-Control': 'no-store', 'Content-Length': String(pdf.length) })
     return res.send(pdf)
@@ -108,7 +108,7 @@ quotesRouter.post('/:id/drive', parse(idParams, 'params'), async (req, res, next
     if (!quote) return sendError(res, 404, 'QUOTE_NOT_FOUND', 'Cotización no encontrada.')
     if (quote.driveFile?.id) return res.json({ ok: true, data: { driveFile: quote.driveFile }, error: null })
     const settings = await getOrCreateCompanySettings()
-    const pdf = await generateQuotePdf(quote, settings, quote.printProfile || settings.printProfile)
+    const pdf = await generateQuotePdf(quote, settings, settings.printProfile)
     const driveFile = await uploadQuotePdf({ quote, pdf })
     const uploadedAt = new Date()
     await Quote.updateOne({ _id: quote._id, 'driveFile.id': { $in: ['', null] } }, { $set: { driveFile: { ...driveFile, uploadedAt } } })

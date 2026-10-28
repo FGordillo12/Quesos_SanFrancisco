@@ -15,6 +15,7 @@ const storeSnapshotSchema = new mongoose.Schema({
 const quoteItemSchema = new mongoose.Schema({
   cheese: { type: mongoose.Schema.Types.ObjectId, ref: 'Cheese', required: true },
   cheeseName: { type: String, required: true, trim: true, maxlength: 100 },
+  sortOrder: { type: Number, min: 0, max: 100_000, default: 10_000 },
   quantity: { type: String, required: true, maxlength: 20 },
   quantityMilli: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
   unit: { type: String, enum: ['kg', 'und'], required: true },
