@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { useAuth } from '../AuthContext'
@@ -5,12 +6,36 @@ import { useAuth } from '../AuthContext'
 export function DashboardPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [logoutBusy, setLogoutBusy] = useState(false)
+  const confirmLogoutRef = useRef(null)
   const date = new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(new Date())
 
+  useEffect(() => {
+    if (!showLogoutModal) return undefined
+    const previousFocus = document.activeElement
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    confirmLogoutRef.current?.focus()
+    function handleKeyDown(event) {
+      if (event.key === 'Escape' && !logoutBusy) setShowLogoutModal(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+      previousFocus?.focus?.()
+    }
+  }, [showLogoutModal, logoutBusy])
+
   async function logout() {
-    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return
-    await signOut()
-    navigate('/login', { replace: true })
+    setLogoutBusy(true)
+    try { await signOut() }
+    finally {
+      setLogoutBusy(false)
+      setShowLogoutModal(false)
+      navigate('/login', { replace: true })
+    }
   }
 
   return (
@@ -28,7 +53,7 @@ export function DashboardPage() {
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
             {user?.role === 'admin' && <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/settings/company">Empresa e impresión</Link>}
           </nav>
-          <button onClick={logout} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cerrar sesión</button>
+          <button onClick={() => setShowLogoutModal(true)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cerrar sesión</button>
         </div>
       </header>
       <section className="mx-auto mt-8 max-w-6xl">
@@ -50,6 +75,17 @@ export function DashboardPage() {
           {user?.role === 'admin' && <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/settings/company">Empresa e impresión</Link>}
         </nav>
       </section>
+      {showLogoutModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !logoutBusy) setShowLogoutModal(false) }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="logout-title" aria-describedby="logout-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-xl font-bold text-amber-700" aria-hidden="true">?</div>
+          <h2 id="logout-title" className="mt-4 text-xl font-extrabold">¿Cerrar sesión?</h2>
+          <p id="logout-description" className="mt-2 text-sm leading-6 text-slate-600">¿Estás seguro de que quieres salir de tu cuenta?</p>
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setShowLogoutModal(false)} disabled={logoutBusy} className="rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
+            <button ref={confirmLogoutRef} type="button" onClick={logout} disabled={logoutBusy} className="rounded-xl bg-brand px-4 py-2.5 font-bold text-white hover:bg-brand-dark disabled:opacity-50">{logoutBusy ? 'Cerrando sesión…' : 'Sí, cerrar sesión'}</button>
+          </div>
+        </section>
+      </div>}
     </main>
   )
 }
