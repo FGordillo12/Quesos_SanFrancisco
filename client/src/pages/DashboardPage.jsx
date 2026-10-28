@@ -8,6 +8,7 @@ export function DashboardPage() {
   const date = new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(new Date())
 
   async function logout() {
+    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return
     await signOut()
     navigate('/login', { replace: true })
   }

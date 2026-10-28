@@ -69,7 +69,7 @@ cheeseRouter.get('/', parse(z.object({ search: searchQuery, status: statusQuery 
     const { search, status } = req.validatedQuery
     const filter = { ...statusFilter(status) }
     if (search) filter.name = { $regex: escapeRegex(search), $options: 'i' }
-    const data = await Cheese.find(filter).sort({ name: 1 }).lean()
+    const data = await Cheese.find(filter).sort({ sortOrder: 1, name: 1 }).lean()
     return res.json({ ok: true, data, error: null })
   } catch (error) { return next(error) }
 })
@@ -164,7 +164,7 @@ async function readPriceMatrix(scope, storeId) {
       throw error
     }
   }
-  const cheeses = await Cheese.find({ isActive: true }).sort({ name: 1 }).lean()
+  const cheeses = await Cheese.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }).lean()
   const filter = { scope, cheese: { $in: cheeses.map((cheese) => cheese._id) } }
   if (scope === 'store') filter.store = storeId
   const prices = await Price.find(filter).lean()
