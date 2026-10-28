@@ -72,17 +72,19 @@ async function getAccessToken() {
 }
 
 export async function uploadQuotePdf({ quote, pdf }) {
-  const oauthSettings = env.googleOAuth ? await CompanySettings.findById('company').select('driveOAuth.folderId').lean() : null
-  const folderId = env.googleOAuth ? oauthSettings?.driveOAuth?.folderId : env.googleDriveFolderId
-  if (!folderId) throw driveError('DRIVE_FOLDER_NOT_CONFIGURED', 'Conecta Google Drive y selecciona la carpeta de destino desde Empresa e impresión.')
+  // OAuth uploads always go to the connected user's My Drive root; the old
+  // per-account folder setting is intentionally ignored.
+  const folderId = env.googleOAuth ? null : env.googleDriveFolderId
+  if (!env.googleOAuth && !folderId) throw driveError('DRIVE_FOLDER_NOT_CONFIGURED', 'Configura una carpeta de destino para la cuenta de servicio de Google Drive.')
   const accessToken = await getAccessToken()
   const boundary = `qsf_${randomUUID().replaceAll('-', '')}`
   const metadata = {
     name: `${quote.number}.pdf`,
     mimeType: 'application/pdf',
-    parents: [folderId],
     description: `Cotización ${quote.number} · Quesos San Francisco`,
   }
+  // Con OAuth del usuario, omitir parents guarda el PDF en la raíz de Mi unidad.
+  if (folderId) metadata.parents = [folderId]
   const body = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`),
     Buffer.from(`--${boundary}\r\nContent-Type: application/pdf\r\nContent-Transfer-Encoding: binary\r\n\r\n`),

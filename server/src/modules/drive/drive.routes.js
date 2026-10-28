@@ -32,15 +32,13 @@ driveRouter.get('/oauth/status', requireAuth, requireRole('admin'), async (req, 
     return res.json({
       ok: true,
       data: {
-        configured: Boolean(env.googleOAuth && env.googleOAuth.pickerApiKey && env.googleOAuth.pickerAppId),
+        configured: Boolean(env.googleOAuth),
         connected: Boolean(oauthSettings?.refreshTokenCiphertext),
         accountEmail: oauthSettings?.accountEmail || '',
         connectedAt: oauthSettings?.linkedAt || null,
         folderId: oauthSettings?.folderId || '',
         folderName: oauthSettings?.folderName || '',
         redirectUri: env.googleOAuth?.redirectUri || null,
-        pickerApiKey: env.googleOAuth?.pickerApiKey || null,
-        pickerAppId: env.googleOAuth?.pickerAppId || null,
       },
       error: null,
     })
@@ -48,7 +46,7 @@ driveRouter.get('/oauth/status', requireAuth, requireRole('admin'), async (req, 
 })
 
 driveRouter.get('/oauth/start', requireAuth, requireRole('admin'), (req, res) => {
-  if (!env.googleOAuth || !env.googleOAuth.pickerApiKey || !env.googleOAuth.pickerAppId) return finishOAuth(res, 'not_configured')
+  if (!env.googleOAuth) return finishOAuth(res, 'not_configured')
   const nonce = randomBytes(32).toString('base64url')
   const state = jwt.sign({ typ: 'google-drive-oauth', sub: String(req.authUser._id), nonce }, env.accessTokenSecret, { expiresIn: '10m' })
   res.cookie(STATE_COOKIE, nonce, cookieOptions())
