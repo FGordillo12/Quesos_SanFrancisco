@@ -107,7 +107,6 @@ export function LoginPage() {
     <form onSubmit={submit} className="space-y-5" noValidate>
       <FormInput label="Correo electrónico" type="email" autoComplete="email" inputMode="email" {...form.register('email')} error={form.formState.errors.email?.message} />
       <PasswordInput label="Contraseña" autoComplete="current-password" {...form.register('password')} error={form.formState.errors.password?.message} />
-      <Notice>Por seguridad, 5 intentos fallidos pueden bloquear temporalmente la cuenta durante 15 minutos.</Notice>
       <div className="flex items-center justify-between gap-3 text-sm">
         <label className="flex items-center gap-2 text-slate-700"><input type="checkbox" className="h-4 w-4 accent-brand" {...form.register('rememberMe')} /> Recordarme</label>
         <Link className="font-semibold text-brand hover:text-brand-dark" to="/forgot-password">¿Olvidaste tu contraseña?</Link>
