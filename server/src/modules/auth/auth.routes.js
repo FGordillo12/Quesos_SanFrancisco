@@ -16,7 +16,8 @@ import {
   rotateRefreshSession,
   verifyEmailToken,
 } from './auth.service.js'
-import { requireAuth } from './auth.middleware.js'
+import { requireAuth, requireRole } from './auth.middleware.js'
+import { User } from './models/User.js'
 
 export const authRouter = Router()
 
@@ -34,6 +35,8 @@ const loginSchema = z.object({
 const emailOnlySchema = z.object({ email: emailSchema }).strict()
 const verifySchema = z.object({ token: z.string().min(20).max(200) }).strict()
 const resetSchema = z.object({ token: z.string().min(20).max(200), password: z.string().min(10).max(72) }).strict()
+const roleSchema = z.object({ role: z.enum(['admin', 'trabajador', 'usuario']) }).strict()
+const userIdSchema = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i) }).strict()
 
 function parseBody(schema) {
   return (req, res, next) => {
@@ -91,7 +94,7 @@ authRouter.post('/register', sensitiveRateLimit, parseBody(registrationSchema), 
   try {
     await registerUser(req.validatedBody)
     return res.status(201).json({
-      ok: true, data: { message: 'Cuenta creada. Ya puedes iniciar sesión.' }, error: null,
+      ok: true, data: { message: 'Cuenta creada. Quedó pendiente de que un administrador asigne un rol con acceso.' }, error: null,
     })
   } catch (error) {
     if (error.code === 'WEAK_PASSWORD') return sendError(res, 400, error.code, error.message)
@@ -117,6 +120,7 @@ authRouter.post('/login', sensitiveRateLimit, parseBody(loginSchema), async (req
     setSessionCookies(res, accessToken, session.token, session.ttlSeconds)
     return res.json({ ok: true, data: { user: publicUser(user) }, error: null })
   } catch (error) {
+    if (error.code === 'ROLE_PENDING') return sendError(res, 403, error.code, error.message)
     if (error.code === 'ACCOUNT_TEMPORARILY_LOCKED') {
       res.set('Retry-After', String(error.retryAfterSeconds))
       return sendError(res, 429, error.code, error.message)
@@ -168,5 +172,39 @@ authRouter.post('/reset-password', sensitiveRateLimit, parseBody(resetSchema), a
 
 authRouter.get('/me', requireAuth, (req, res) => {
   return res.json({ ok: true, data: { user: publicUser(req.authUser) }, error: null })
+})
+
+authRouter.get('/users', requireAuth, requireRole('admin'), async (req, res, next) => {
+  try {
+    const users = await User.find({}).select('name email role createdAt').sort({ createdAt: -1, name: 1 }).lean()
+    return res.json({ ok: true, data: users.map((user) => ({ id: String(user._id), name: user.name, email: user.email, role: user.role === 'vendedor' ? 'trabajador' : user.role, createdAt: user.createdAt })), error: null })
+  } catch (error) { return next(error) }
+})
+
+authRouter.patch('/users/:id/role', requireAuth, requireRole('admin'), (req, res, next) => {
+  const parsedParams = userIdSchema.safeParse(req.params)
+  const parsedBody = roleSchema.safeParse(req.body)
+  if (!parsedParams.success || !parsedBody.success) {
+    return res.status(400).json({ ok: false, data: null, error: { code: 'VALIDATION_ERROR', message: 'Revisa el usuario y el rol seleccionados.' } })
+  }
+  req.validatedParams = parsedParams.data
+  req.validatedBody = parsedBody.data
+  return next()
+}, async (req, res, next) => {
+  try {
+    const target = await User.findById(req.validatedParams.id)
+    if (!target) return sendError(res, 404, 'USER_NOT_FOUND', 'La cuenta no existe.')
+    const nextRole = req.validatedBody.role
+    if (String(target._id) === String(req.authUser._id) && nextRole !== 'admin') {
+      return sendError(res, 409, 'SELF_DEMOTION_NOT_ALLOWED', 'No puedes quitarte tu propio rol de Administrador.')
+    }
+    if (target.role === 'admin' && target.isActive && nextRole !== 'admin') {
+      const admins = await User.countDocuments({ role: 'admin', isActive: true })
+      if (admins <= 1) return sendError(res, 409, 'LAST_ADMIN', 'No se puede quitar el rol al único administrador activo.')
+    }
+    target.role = nextRole
+    await target.save()
+    return res.json({ ok: true, data: { id: String(target._id), name: target.name, email: target.email, role: target.role }, error: null })
+  } catch (error) { return next(error) }
 })
 

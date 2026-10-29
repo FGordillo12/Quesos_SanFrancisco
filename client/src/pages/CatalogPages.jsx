@@ -481,3 +481,79 @@ export function PricesPage() {
     {confirmDiscard && <ConfirmModal message="Tienes cambios de precios sin guardar. Si continúas, se perderán." onCancel={() => { setConfirmDiscard(false); setPendingAction(null) }} onConfirm={discardPendingAction} />}
   </main>
 }
+
+export function RolesPage() {
+  const { user: currentUser } = useAuth()
+  const navigate = useNavigate()
+  const [users, setUsers] = useState([])
+  const [draftRoles, setDraftRoles] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const dirtyUsers = users.filter((account) => (draftRoles[account.id] || account.role) !== account.role)
+
+  useEffect(() => {
+    api.get('/auth/users')
+      .then(({ data }) => {
+        const accounts = data.data.map((account) => ({ ...account, role: account.role === 'vendedor' ? 'trabajador' : account.role }))
+        setUsers(accounts)
+        setDraftRoles(Object.fromEntries(accounts.map((account) => [account.id, account.role])))
+      })
+      .catch((requestError) => { setMessage(getError(requestError, 'No se pudieron cargar las cuentas.')); setError(true) })
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (dirtyUsers.length === 0) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [dirtyUsers.length])
+
+  function handleBack() {
+    if (dirtyUsers.length) { setConfirmDiscard(true); return true }
+    return false
+  }
+
+  async function saveRole(account) {
+    const role = draftRoles[account.id]
+    if (!role || role === account.role || savingId) return
+    setSavingId(account.id); setMessage(''); setError(false)
+    try {
+      const { data } = await api.patch(`/auth/users/${account.id}/role`, { role })
+      setUsers((current) => current.map((item) => item.id === account.id ? { ...item, role: data.data.role } : item))
+      setDraftRoles((current) => ({ ...current, [account.id]: data.data.role }))
+      setMessage(`El rol de ${account.name} se guardó correctamente como ${roleLabel(data.data.role)}.`)
+    } catch (requestError) {
+      setMessage(getError(requestError, 'No se pudo guardar el rol.')); setError(true)
+    } finally { setSavingId('') }
+  }
+
+  return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
+    <CatalogHeader title="Roles" description="Asigna el nivel de acceso a las cuentas registradas." onBack={handleBack} />
+    <section className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-card sm:p-6">
+      <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
+      <div className="mb-5 rounded-xl bg-primary px-4 py-3 text-sm leading-6 text-brand-dark">Las cuentas nuevas quedan como Usuario y no pueden iniciar sesión hasta que un administrador les asigne Trabajador o Administrador. Trabajador solo tiene acceso a Crear factura.</div>
+      {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando cuentas…</p> : users.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay cuentas registradas.</p> : <div className="space-y-3">
+        {users.map((account) => {
+          const role = draftRoles[account.id] || account.role
+          const changed = role !== account.role
+          const isSelf = account.id === currentUser?.id
+          return <article key={account.id} className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
+            <div className="min-w-0"><h2 className="break-words font-bold">{account.name}</h2><p className="break-all text-sm text-slate-600">{account.email}</p><p className="mt-1 text-xs text-slate-500">{account.role === 'usuario' ? 'Pendiente de asignación · sin acceso' : `Rol actual: ${roleLabel(account.role)}`}{isSelf ? ' · Tu cuenta' : ''}</p></div>
+            <label className="block text-sm font-semibold">Rol<select aria-label={`Rol para ${account.name}`} value={role} disabled={Boolean(savingId) || (isSelf && account.role === 'admin')} onChange={(event) => setDraftRoles((current) => ({ ...current, [account.id]: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-normal outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-slate-50"><option value="usuario">Usuario · sin acceso</option><option value="trabajador">Trabajador · solo facturas</option><option value="admin">Administrador · acceso total</option></select></label>
+            <button type="button" onClick={() => saveRole(account)} disabled={!changed || Boolean(savingId)} className="w-full cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{savingId === account.id ? 'Guardando…' : 'Guardar rol'}</button>
+          </article>
+        })}
+      </div>}
+      {dirtyUsers.length > 0 && <p className="mt-4 text-sm font-semibold text-amber-800">Hay {dirtyUsers.length} cambio(s) de rol sin guardar.</p>}
+    </section>
+    {confirmDiscard && <ConfirmModal message="Tienes cambios de roles sin guardar. Si sales ahora, se perderán." onCancel={() => setConfirmDiscard(false)} onConfirm={() => { setConfirmDiscard(false); navigate('/') }} />}
+  </main>
+}
+
+function roleLabel(role) {
+  return role === 'admin' ? 'Administrador' : role === 'trabajador' || role === 'vendedor' ? 'Trabajador' : 'Usuario'
+}

@@ -12,6 +12,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx').then((modul
 const CheesesPage = lazy(() => import('./pages/CatalogPages.jsx').then((module) => ({ default: module.CheesesPage })))
 const PricesPage = lazy(() => import('./pages/CatalogPages.jsx').then((module) => ({ default: module.PricesPage })))
 const StoresPage = lazy(() => import('./pages/CatalogPages.jsx').then((module) => ({ default: module.StoresPage })))
+const RolesPage = lazy(() => import('./pages/CatalogPages.jsx').then((module) => ({ default: module.RolesPage })))
 const QuotePage = lazy(() => import('./pages/QuotePage.jsx').then((module) => ({ default: module.QuotePage })))
 const CompanySettingsPage = lazy(() => import('./pages/CompanySettingsPage.jsx').then((module) => ({ default: module.CompanySettingsPage })))
 
@@ -31,11 +32,14 @@ function AppRoutes() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/stores" element={<StoresPage />} />
-        <Route path="/cheeses" element={<CheesesPage />} />
-        <Route path="/prices" element={<PricesPage />} />
         <Route path="/quote" element={<QuotePage />} />
-        <Route path="/settings/company" element={<CompanySettingsPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/stores" element={<StoresPage />} />
+          <Route path="/cheeses" element={<CheesesPage />} />
+          <Route path="/prices" element={<PricesPage />} />
+          <Route path="/roles" element={<RolesPage />} />
+          <Route path="/settings/company" element={<CompanySettingsPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

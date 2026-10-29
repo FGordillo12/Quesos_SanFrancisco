@@ -16,6 +16,10 @@ export async function requireAuth(req, res, next) {
     if (!session) return unauthorized(res)
     const user = await User.findOne({ _id: payload.sub, isActive: true })
     if (!user) return unauthorized(res)
+    if (user.role === 'usuario') {
+      return res.status(403).json({ ok: false, data: null, error: { code: 'ROLE_PENDING', message: 'Tu cuenta está pendiente de que un administrador te asigne un rol con acceso.' } })
+    }
+    if (user.role === 'vendedor') { user.role = 'trabajador'; await user.save() }
     req.authUser = user
     return next()
   } catch {

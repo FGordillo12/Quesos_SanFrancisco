@@ -64,7 +64,7 @@ export async function registerUser({ name, email, password }) {
     name: name.trim(),
     email: normalizedEmail,
     passwordHash: await bcrypt.hash(password, PASSWORD_HASH_COST),
-    role: 'vendedor',
+    role: 'usuario',
     isActive: true,
     isEmailVerified: true,
   })
@@ -130,6 +130,19 @@ export async function loginUser({ email, password }) {
     return null
   }
 
+  if (user.role === 'usuario') {
+    const error = new Error('Tu cuenta está creada y pendiente de que un administrador te asigne el rol de Trabajador o Administrador.')
+    error.status = 403
+    error.code = 'ROLE_PENDING'
+    throw error
+  }
+
+  // Migrate users created by previous versions without changing their access.
+  if (user.role === 'vendedor') {
+    user.role = 'trabajador'
+    await user.save()
+  }
+
   await User.updateOne({ _id: user._id }, { $set: { failedLoginAttempts: 0, lockUntil: null, lastLoginAt: now } })
   return user
 }
@@ -169,7 +182,8 @@ export async function rotateRefreshSession(rawToken, req) {
   )
   if (!oldSession) return null
   const user = await User.findOne({ _id: oldSession.user, isActive: true })
-  if (!user) return null
+  if (!user || user.role === 'usuario') return null
+  if (user.role === 'vendedor') { user.role = 'trabajador'; await user.save() }
   const ttlSeconds = Math.ceil((oldSession.expiresAt.getTime() - now.getTime()) / 1000)
   const token = createRefreshJwt(user._id, ttlSeconds)
   const expiresAt = oldSession.expiresAt

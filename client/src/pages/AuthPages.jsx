@@ -137,7 +137,7 @@ export function RegisterPage() {
     try {
       await api.post('/auth/register', { name, email, password: newPassword })
       setSuccess(true)
-      setFeedback({ variant: 'success', message: 'La cuenta se creó correctamente. Ya puedes iniciar sesión.' })
+      setFeedback({ variant: 'success', message: 'La cuenta se creó correctamente y quedó pendiente de que un administrador le asigne un rol con acceso.' })
     } catch (error) {
       const message = getError(error, 'No se pudo crear la cuenta. Inténtalo de nuevo.')
       setNotice(message)
@@ -145,8 +145,8 @@ export function RegisterPage() {
     }
   })
 
-  if (success) return <AuthLayout title="Cuenta creada" subtitle="Tu cuenta ya está lista para iniciar sesión.">
-    <Notice>Se creó con permisos de vendedor. Un administrador puede cambiar el rol cuando sea necesario.</Notice>
+  if (success) return <AuthLayout title="Cuenta creada" subtitle="Tu cuenta quedó pendiente de aprobación.">
+    <Notice>Un administrador debe asignarte el rol de Trabajador o Administrador para que puedas iniciar sesión y usar la aplicación.</Notice>
     <p className="mt-6 text-center text-sm"><Link className="font-bold text-brand" to="/login">Volver al inicio de sesión</Link></p>
     <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => setFeedback(null)} />
   </AuthLayout>

@@ -34,7 +34,7 @@ function publicSettings(document) {
 }
 
 settingsRouter.use(requireAuth)
-settingsRouter.get('/company', async (req, res, next) => {
+settingsRouter.get('/company', requireRole('admin'), async (req, res, next) => {
   try {
     const data = await getOrCreateCompanySettings()
     return res.json({ ok: true, data: publicSettings(data), error: null })

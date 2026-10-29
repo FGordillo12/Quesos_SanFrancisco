@@ -10,6 +10,7 @@ export function DashboardPage() {
   const [logoutBusy, setLogoutBusy] = useState(false)
   const confirmLogoutRef = useRef(null)
   const date = new Intl.DateTimeFormat('es-CO', { dateStyle: 'full', timeZone: 'America/Bogota' }).format(new Date())
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     if (!showLogoutModal) return undefined
@@ -48,10 +49,11 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           <nav aria-label="Módulos" className="hidden flex-wrap gap-1 md:flex">
             <Link className="rounded-lg bg-brand px-3 py-2 text-sm font-bold text-white hover:bg-brand-dark" to="/quote">Crear factura</Link>
-            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
+            {isAdmin && <><Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Quesos</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
-            {user?.role === 'admin' && <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/settings/company">Empresa e impresión</Link>}
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/roles">Roles</Link>
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/settings/company">Empresa e impresión</Link></>}
           </nav>
           <button type="button" onClick={() => setShowLogoutModal(true)} className="shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none sm:px-4">Cerrar sesión</button>
         </div>
@@ -63,16 +65,17 @@ export function DashboardPage() {
         <Link to="/quote" className="mt-6 inline-flex rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm hover:bg-brand-dark">Crear factura</Link>
         <div className="mt-8 rounded-2xl border border-white bg-white/80 p-6 shadow-card sm:p-8">
           <p className="text-sm font-bold uppercase tracking-wider text-brand">Acceso</p>
-          <p className="mt-2 text-lg font-bold">{user?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
+          <p className="mt-2 text-lg font-bold">{isAdmin ? 'Administrador' : user?.role === 'trabajador' || user?.role === 'vendedor' ? 'Trabajador' : 'Usuario'}</p>
           <p className="mt-1 text-sm text-slate-600">{user?.email}</p>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-600">La sesión está protegida con cookies seguras, renovación automática y expiración controlada. Administra el catálogo y las tarifas desde estos accesos.</p>
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-600">{isAdmin ? 'La sesión está protegida con cookies seguras, renovación automática y expiración controlada. Administra el catálogo, las tarifas, las cuentas y la configuración desde estos accesos.' : 'Desde este espacio puedes crear facturas. El acceso a la configuración y a los catálogos está reservado para administración.'}</p>
         </div>
         <nav aria-label="Accesos a gestión" className="mt-5 grid gap-3 sm:grid-cols-3 md:hidden">
           <Link className="rounded-xl bg-brand p-4 text-center font-bold text-white shadow-card sm:col-span-3" to="/quote">Crear factura</Link>
-          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
+          {isAdmin && <><Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Quesos</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>
-          {user?.role === 'admin' && <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/settings/company">Empresa e impresión</Link>}
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/roles">Roles</Link>
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/settings/company">Empresa e impresión</Link></>}
         </nav>
       </section>
       {showLogoutModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !logoutBusy) setShowLogoutModal(false) }}>
