@@ -16,15 +16,15 @@ function CatalogHeader({ title, description, children, onBack }) {
   </header>
 }
 
-function ConfirmModal({ title = '¿Descartar cambios?', message, confirmLabel = 'Descartar cambios', cancelLabel = 'Seguir editando', onConfirm, onCancel }) {
+function ConfirmModal({ title = '¿Descartar cambios?', message, confirmLabel = 'Descartar cambios', cancelLabel = 'Seguir editando', onConfirm, onCancel, disabled = false }) {
   return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
     <section role="alertdialog" aria-modal="true" aria-labelledby="discard-title" aria-describedby="discard-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-xl font-bold text-amber-700" aria-hidden="true">!</div>
       <h2 id="discard-title" className="mt-4 text-xl font-extrabold">{title}</h2>
       <p id="discard-description" className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onCancel} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50">{cancelLabel}</button>
-        <button type="button" onClick={onConfirm} className="cursor-pointer rounded-xl bg-rose-600 px-4 py-2.5 font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-rose-700 active:translate-y-0 active:scale-95">{confirmLabel}</button>
+        <button type="button" onClick={onCancel} disabled={disabled} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">{cancelLabel}</button>
+        <button type="button" onClick={onConfirm} disabled={disabled} className="cursor-pointer rounded-xl bg-rose-600 px-4 py-2.5 font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-rose-700 active:translate-y-0 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">{disabled ? 'Eliminando…' : confirmLabel}</button>
       </div>
     </section>
   </div>
@@ -489,6 +489,8 @@ export function RolesPage() {
   const [draftRoles, setDraftRoles] = useState({})
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState('')
+  const [deletingId, setDeletingId] = useState('')
+  const [accountToDelete, setAccountToDelete] = useState(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
@@ -531,6 +533,20 @@ export function RolesPage() {
     } finally { setSavingId('') }
   }
 
+  async function deleteAccount() {
+    if (!accountToDelete || deletingId) return
+    setDeletingId(accountToDelete.id); setMessage(''); setError(false)
+    try {
+      await api.delete(`/auth/users/${accountToDelete.id}`)
+      setUsers((current) => current.filter((item) => item.id !== accountToDelete.id))
+      setDraftRoles((current) => { const next = { ...current }; delete next[accountToDelete.id]; return next })
+      setMessage(`La cuenta de ${accountToDelete.name} se eliminó y su acceso fue revocado.`)
+      setAccountToDelete(null)
+    } catch (requestError) {
+      setMessage(getError(requestError, 'No se pudo eliminar la cuenta.')); setError(true); setAccountToDelete(null)
+    } finally { setDeletingId('') }
+  }
+
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
     <CatalogHeader title="Roles" description="Asigna el nivel de acceso a las cuentas registradas." onBack={handleBack} />
     <section className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-card sm:p-6">
@@ -541,16 +557,21 @@ export function RolesPage() {
           const role = draftRoles[account.id] || account.role
           const changed = role !== account.role
           const isSelf = account.id === currentUser?.id
+          const protectedAccount = account.role === 'admin' || isSelf
           return <article key={account.id} className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
             <div className="min-w-0"><h2 className="break-words font-bold">{account.name}</h2><p className="break-all text-sm text-slate-600">{account.email}</p><p className="mt-1 text-xs text-slate-500">{account.role === 'usuario' ? 'Pendiente de asignación · sin acceso' : `Rol actual: ${roleLabel(account.role)}`}{isSelf ? ' · Tu cuenta' : ''}</p></div>
             <label className="block text-sm font-semibold">Rol<select aria-label={`Rol para ${account.name}`} value={role} disabled={Boolean(savingId) || (isSelf && account.role === 'admin')} onChange={(event) => setDraftRoles((current) => ({ ...current, [account.id]: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-normal outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:bg-slate-50"><option value="usuario">Usuario · sin acceso</option><option value="trabajador">Trabajador · solo facturas</option><option value="admin">Administrador · acceso total</option></select></label>
-            <button type="button" onClick={() => saveRole(account)} disabled={!changed || Boolean(savingId)} className="w-full cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">{savingId === account.id ? 'Guardando…' : 'Guardar rol'}</button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => saveRole(account)} disabled={!changed || Boolean(savingId) || Boolean(deletingId)} className="min-w-32 flex-1 cursor-pointer rounded-xl bg-brand px-4 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">{savingId === account.id ? 'Guardando…' : 'Guardar rol'}</button>
+              <button type="button" onClick={() => setAccountToDelete(account)} disabled={protectedAccount || changed || Boolean(savingId) || Boolean(deletingId)} title={protectedAccount ? 'Las cuentas Administrador no se pueden eliminar' : changed ? 'Guarda o revierte el cambio de rol antes de eliminar' : undefined} className="min-w-32 flex-1 cursor-pointer rounded-xl border border-rose-300 px-4 py-2.5 font-bold text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">{deletingId === account.id ? 'Eliminando…' : protectedAccount ? 'No eliminable' : 'Eliminar cuenta'}</button>
+            </div>
           </article>
         })}
       </div>}
       {dirtyUsers.length > 0 && <p className="mt-4 text-sm font-semibold text-amber-800">Hay {dirtyUsers.length} cambio(s) de rol sin guardar.</p>}
     </section>
     {confirmDiscard && <ConfirmModal message="Tienes cambios de roles sin guardar. Si sales ahora, se perderán." onCancel={() => setConfirmDiscard(false)} onConfirm={() => { setConfirmDiscard(false); navigate('/') }} />}
+    {accountToDelete && <ConfirmModal title="¿Eliminar esta cuenta?" message={`Se eliminará el acceso de ${accountToDelete.name} (${accountToDelete.email}) y se cerrarán sus sesiones. Sus facturas históricas se conservarán para mantener la trazabilidad. Esta acción no se puede deshacer desde el módulo.`} confirmLabel="Sí, eliminar cuenta" cancelLabel="Cancelar" disabled={Boolean(deletingId)} onCancel={() => setAccountToDelete(null)} onConfirm={deleteAccount} />}
   </main>
 }
 

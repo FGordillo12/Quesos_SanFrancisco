@@ -18,6 +18,7 @@ import {
 } from './auth.service.js'
 import { requireAuth, requireRole } from './auth.middleware.js'
 import { User } from './models/User.js'
+import { RefreshToken } from './models/RefreshToken.js'
 
 export const authRouter = Router()
 
@@ -176,7 +177,7 @@ authRouter.get('/me', requireAuth, (req, res) => {
 
 authRouter.get('/users', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
-    const users = await User.find({}).select('name email role createdAt').sort({ createdAt: -1, name: 1 }).lean()
+    const users = await User.find({ isActive: true }).select('name email role createdAt').sort({ createdAt: -1, name: 1 }).lean()
     return res.json({ ok: true, data: users.map((user) => ({ id: String(user._id), name: user.name, email: user.email, role: user.role === 'vendedor' ? 'trabajador' : user.role, createdAt: user.createdAt })), error: null })
   } catch (error) { return next(error) }
 })
@@ -205,6 +206,30 @@ authRouter.patch('/users/:id/role', requireAuth, requireRole('admin'), (req, res
     target.role = nextRole
     await target.save()
     return res.json({ ok: true, data: { id: String(target._id), name: target.name, email: target.email, role: target.role }, error: null })
+  } catch (error) { return next(error) }
+})
+
+authRouter.delete('/users/:id', requireAuth, requireRole('admin'), (req, res, next) => {
+  const parsedParams = userIdSchema.safeParse(req.params)
+  if (!parsedParams.success) return sendError(res, 400, 'VALIDATION_ERROR', 'La cuenta seleccionada no es válida.')
+  req.validatedParams = parsedParams.data
+  return next()
+}, async (req, res, next) => {
+  try {
+    const target = await User.findById(req.validatedParams.id).select('name email role isActive')
+    if (!target || !target.isActive) return sendError(res, 404, 'USER_NOT_FOUND', 'La cuenta no existe o ya fue eliminada.')
+    if (target.role === 'admin') return sendError(res, 409, 'ADMIN_ACCOUNT_PROTECTED', 'Las cuentas con rol Administrador no se pueden eliminar.')
+    if (String(target._id) === String(req.authUser._id)) return sendError(res, 409, 'SELF_DELETE_NOT_ALLOWED', 'No puedes eliminar tu propia cuenta.')
+
+    // Soft-delete to preserve quote ownership and audit history, while revoking access immediately.
+    const removed = await User.findOneAndUpdate(
+      { _id: target._id, isActive: true, role: { $ne: 'admin' } },
+      { $set: { isActive: false } },
+      { new: true },
+    ).select('_id')
+    if (!removed) return sendError(res, 409, 'ACCOUNT_NOT_DELETABLE', 'La cuenta cambió o ya no se puede eliminar.')
+    await RefreshToken.updateMany({ user: target._id, revokedAt: null }, { $set: { revokedAt: new Date() } })
+    return res.json({ ok: true, data: { id: String(target._id), message: 'Cuenta eliminada y acceso revocado.' }, error: null })
   } catch (error) { return next(error) }
 })
 
