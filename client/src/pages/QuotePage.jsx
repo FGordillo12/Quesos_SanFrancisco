@@ -5,6 +5,7 @@ import { AlertModal } from '../components/AlertModal'
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const emptyNewStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
+const homeButtonClass = 'inline-flex cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none'
 
 function currentBogotaDate() {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
@@ -206,36 +207,26 @@ export function QuotePage() {
     } finally { setSaving(false) }
   }
 
-  async function openQuotePdf(print = false) {
+  async function downloadQuotePdf() {
     setError('')
-    const printWindow = print ? window.open('', '_blank') : null
-    if (print && !printWindow) { setError('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes e inténtalo de nuevo.'); return }
     setPdfBusy(true)
     try {
-      if (!print) {
-        setDriveBusy(true)
-        const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
-        setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
-      }
+      setDriveBusy(true)
+      const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
+      setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
       const pdfResponse = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
       const { data } = pdfResponse
       const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
-      if (printWindow) {
-        printWindow.location.href = url
-        printWindow.addEventListener('load', () => printWindow.print(), { once: true })
-      } else {
-        const anchor = document.createElement('a')
-        anchor.href = url
-        const disposition = pdfResponse.headers['content-disposition'] || ''
-        const serverFilename = disposition.match(/filename="([^"]+)"/i)?.[1]
-        anchor.download = serverFilename || savedQuote.pdfFileName || `${savedQuote.number}.pdf`
-        document.body.appendChild(anchor); anchor.click(); anchor.remove()
-        setMessage(`Factura ${savedQuote.number} descargada y guardada en Google Drive.`)
-        setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó y guardó correctamente en Google Drive.` })
-      }
+      const anchor = document.createElement('a')
+      anchor.href = url
+      const disposition = pdfResponse.headers['content-disposition'] || ''
+      const serverFilename = disposition.match(/filename="([^"]+)"/i)?.[1]
+      anchor.download = serverFilename || savedQuote.pdfFileName || `${savedQuote.number}.pdf`
+      document.body.appendChild(anchor); anchor.click(); anchor.remove()
+      setMessage(`Factura ${savedQuote.number} descargada y guardada en Google Drive.`)
+      setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó y guardó correctamente en Google Drive.` })
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (requestError) {
-      printWindow?.close()
       const message = requestError.response?.data?.error?.message || 'No se pudo generar el PDF.'
       setError(message)
       setFeedback({ variant: 'error', message })
@@ -256,7 +247,7 @@ export function QuotePage() {
 
   if (savedQuote) return <main className="min-h-screen bg-primary px-4 py-8 text-ink sm:px-8">
     <section className="mx-auto max-w-3xl rounded-3xl bg-white p-6 shadow-card sm:p-10">
-      <Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link>
+      <Link to="/" className={homeButtonClass}>Volver al inicio</Link>
       <div className="mt-8 rounded-2xl bg-emerald-50 p-6 text-center">
         <p className="text-sm font-bold uppercase tracking-wider text-emerald-700">Factura guardada</p>
         <h1 className="mt-2 text-3xl font-extrabold">{savedQuote.number}</h1>
@@ -267,9 +258,8 @@ export function QuotePage() {
         {savedQuote.items.map((item) => <div key={item.cheese} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{item.cheeseName} · {item.quantity} {item.unit}<span className="ml-2 text-xs text-slate-500">{money.format(item.unitPrice)} / {item.unit}</span></span><span className="font-semibold">{money.format(item.lineTotal)}</span></div>)}
       </div>
       {error && <ErrorNotice>{error}</ErrorNotice>}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => openQuotePdf(false)} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand hover:bg-primary disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
-        <button type="button" onClick={() => openQuotePdf(true)} disabled={pdfBusy} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-50">Imprimir</button>
+      <div className="mt-6 grid gap-3">
+        <button type="button" onClick={downloadQuotePdf} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
       </div>
       {savedQuote.driveFile?.id && <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
@@ -282,7 +272,7 @@ export function QuotePage() {
 
   return <main className="min-h-screen bg-primary px-4 py-6 pb-36 text-ink sm:px-8 sm:py-10 sm:pb-36">
     <header className="mx-auto mb-6 flex max-w-6xl items-center justify-between">
-      <div><Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Crear factura</h1><p className="mt-1 text-sm text-slate-600">Selecciona un almacén específico o crea esta factura para un almacén nuevo.</p></div>
+      <div><Link to="/" className={homeButtonClass}>Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Crear factura</h1><p className="mt-1 text-sm text-slate-600">Selecciona un almacén específico o crea esta factura para un almacén nuevo.</p></div>
     </header>
     <section className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
