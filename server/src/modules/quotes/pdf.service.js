@@ -32,14 +32,15 @@ function nonEmpty(parts) { return parts.filter((value) => typeof value === 'stri
 function thermalHeight(quote, company, profile) {
   const narrow = profile.format === 'thermal58'
   const baseSize = thermalBaseSize(profile)
-  const charsPerLine = narrow ? Math.max(20, Math.floor(27 * 9 / baseSize)) : Math.max(34, Math.floor(46 * 10 / baseSize))
-  const lines = (value) => Math.max(1, Math.ceil(String(value || '').length / charsPerLine))
-  const lineHeight = (size) => size * 1.35
+  const lineHeight = (size) => size * 1.15
   const margin = mmToPt(profile.marginMm)
+  const contentWidth = narrow ? mmToPt(48) : mmToPt(80) - margin * 2
+  const maxChars = (size) => Math.max(18, Math.floor(contentWidth / (size * 0.48)))
+  const lines = (value, size) => Math.max(1, Math.ceil(String(value || '').length / maxChars(size)))
   const logoSize = narrow ? mmToPt(20) : 38
-  let height = margin * 2 + 8 + lineHeight(baseSize + 2) + 3
+  let height = margin * 2 + lineHeight(baseSize + 2) + 1
 
-  if (profile.showLogo && existsSync(LOGO_PATH)) height += logoSize + 7
+  if (profile.showLogo && existsSync(LOGO_PATH)) height += logoSize + 3
   const companyLines = nonEmpty([
     company.representative && `Representante: ${company.representative}`,
     company.location,
@@ -47,24 +48,24 @@ function thermalHeight(quote, company, profile) {
     company.phone && `Tel. ${company.phone}`,
     company.email,
   ])
-  height += companyLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0)
-  height += 8 + 9 + lineHeight(baseSize + 1) + 5 + lineHeight(baseSize) + 3 + lineHeight(baseSize - 1) + 8 + 8
+  height += companyLines.reduce((sum, value) => sum + lines(value, baseSize - 1) * lineHeight(baseSize - 1) + 1, 0)
+  height += 1 + 4 + 4 + 4 + lineHeight(baseSize) + 3 + lineHeight(baseSize) + 2 + lineHeight(baseSize - 1) + 4 + 4
 
   const storeLines = quote.store.mode === 'new'
     ? [`Almacén: ${quote.store.name}`, `NIT/CC: ${quote.store.nit || ''}`, `Dirección: ${quote.store.address || ''}`, `Ciudad: ${quote.store.city || ''}`, `Teléfono: ${quote.store.phone || ''}`, `Contacto: ${quote.store.contactName || ''}`]
     : nonEmpty([`Almacén: ${quote.store.name}`, quote.store.nit && `NIT/CC: ${quote.store.nit}`, quote.store.address, quote.store.city, quote.store.phone && `Tel. ${quote.store.phone}`, quote.store.contactName && `Contacto: ${quote.store.contactName}`])
-  height += storeLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0) + 6 + 8 + 8
+  height += storeLines.reduce((sum, value) => sum + lines(value, baseSize - 1) * lineHeight(baseSize - 1) + 1, 0) + 3 + 4 + 4
 
   for (const item of quote.items) {
-    height += lines(item.cheeseName) * lineHeight(baseSize) + 1
-    height += lineHeight(baseSize + 0.5) + 1
-    height += lineHeight(baseSize) + 4
+    height += lines(item.cheeseName, baseSize) * lineHeight(baseSize) + 0.5
+    height += lineHeight(baseSize + 0.5) + 0.5
+    height += lineHeight(baseSize) + 1.5
   }
 
-  height += lineHeight(baseSize + 2) + 10 + 8
-  if (quote.notes) height += lineHeight(baseSize - 1) * (1 + lines(quote.notes)) + 10
-  height += 1 + 8 + lineHeight(baseSize) + 8
-  height += 4 + 3 * lineHeight(6) + 8
+  height += lineHeight(baseSize + 2) + 10
+  if (quote.notes) height += lineHeight(baseSize - 1) * (1 + lines(quote.notes, baseSize - 1)) + 10
+  const disclaimerLines = Math.max(1, Math.ceil(PAYMENT_DISCLAIMER.length / Math.floor(contentWidth / (6 * 0.52))))
+  height += 4 + lineHeight(baseSize) + 2 + disclaimerLines * lineHeight(6) + 6
   return Math.min(20_000, Math.ceil(height))
 }
 
@@ -97,25 +98,25 @@ function renderThermal(doc, quote, company, profile) {
   if (profile.showLogo && existsSync(LOGO_PATH)) {
     const logoSize = widthMm === 57 ? mmToPt(20) : 38
     doc.image(LOGO_PATH, contentX + (contentWidth - logoSize) / 2, y, { fit: [logoSize, logoSize] })
-    y += logoSize + 7
+    y += logoSize + 3
   }
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 2).text(company.name, contentX, y, { width: contentWidth, align: 'center' })
-  y = doc.y + 3
+  y = doc.y + 1
   for (const line of nonEmpty([company.representative && `Representante: ${company.representative}`, company.location, company.nit && `NIT: ${company.nit}`, company.phone && `Tel. ${company.phone}`, company.email])) {
     doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth, align: 'center' })
-    y = doc.y + 2
+    y = doc.y + 1
   }
-  y += 8
+  y += 4
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()
-  y += 9
-  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 1).text('FACTURA DE VENTA', contentX, y, { width: contentWidth, align: 'center' })
-  y = doc.y + 5
-  doc.font('Helvetica-Bold').fontSize(baseSize).text(quote.number, contentX, y, { width: contentWidth, align: 'center' })
+  y += 4
+  doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text('FACTURA DE VENTA', contentX, y, { width: contentWidth, align: 'center' })
   y = doc.y + 3
+  doc.font('Helvetica-Bold').fontSize(baseSize).text(quote.number, contentX, y, { width: contentWidth, align: 'center' })
+  y = doc.y + 2
   doc.font('Helvetica').fontSize(baseSize - 1).fillColor(MUTED).text(dateFormatter.format(new Date(quote.date)), contentX, y, { width: contentWidth, align: 'center' })
-  y = doc.y + 8
+  y = doc.y + 4
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
-  y += 8
+  y += 4
 
   const storeDetails = quote.store.mode === 'new'
     ? [
@@ -136,31 +137,31 @@ function renderThermal(doc, quote, company, profile) {
       ])
   for (const line of storeDetails) {
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(line, contentX, y, { width: contentWidth })
-    y = doc.y + 2
+    y = doc.y + 1
   }
-  y += 6
+  y += 3
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
-  y += 8
+  y += 4
 
   for (const item of quote.items) {
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize).text(item.cheeseName, contentX, y, { width: contentWidth })
-    y = doc.y + 1
+    y = doc.y + 0.5
     const quantityWidth = contentWidth * 0.53
     doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 0.5)
       .text(`Cant: ${item.quantity} ${item.unit}`, contentX, y, { width: quantityWidth, lineBreak: false })
     doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 0.5)
       .text(`Unit.: ${cop.format(item.unitPrice)}`, contentX + quantityWidth, y + 0.5, { width: contentWidth - quantityWidth, align: 'right', lineBreak: false })
-    y = doc.y + 1
+    y = doc.y + 0.5
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize)
       .text(`Subtotal: ${cop.format(item.lineTotal)}`, contentX, y, { width: contentWidth, align: 'right' })
-    y = doc.y + 4
+    y = doc.y + 1.5
   }
 
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()
-  y += 9
+  y += 5
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 2).text('TOTAL', contentX, y, { width: contentWidth * 0.4 })
   doc.text(cop.format(quote.total), contentX, y, { width: contentWidth, align: 'right' })
-  y = doc.y + 10
+  y = doc.y + 5
 
   if (quote.notes) {
     doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(baseSize - 1).text('Observaciones', contentX, y, { width: contentWidth })
@@ -169,9 +170,9 @@ function renderThermal(doc, quote, company, profile) {
     y = doc.y + 8
   }
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
-  y += 8
+  y += 4
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(baseSize).text('Gracias por preferirnos', contentX, y, { width: contentWidth, align: 'center' })
-  doc.fillColor(MUTED).font('Helvetica').fontSize(6).text(PAYMENT_DISCLAIMER, contentX, doc.y + 4, { width: contentWidth, align: 'center' })
+  doc.fillColor(MUTED).font('Helvetica').fontSize(6).text(PAYMENT_DISCLAIMER, contentX, doc.y + 2, { width: contentWidth, align: 'center' })
 }
 
 function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, continuation = false) {
