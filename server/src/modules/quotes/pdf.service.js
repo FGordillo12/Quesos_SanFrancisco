@@ -3,10 +3,11 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Cheese } from '../catalog/models/Cheese.js'
 
-const NAVY = '#0B1233'
-const BRAND = '#0077B6'
-const PALE = '#E5FFFB'
-const MUTED = '#526078'
+const NAVY = '#000000'
+const BRAND = '#000000'
+const PALE = '#FFFFFF'
+const MUTED = '#333333'
+const PAYMENT_DISCLAIMER = 'Esta factura no constituye comprobante de pago ni paz y salvo.'
 const LOGO_PATH = fileURLToPath(new URL('../../../assets/logo.png', import.meta.url))
 const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const dateFormatter = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'America/Bogota' })
@@ -59,6 +60,7 @@ function thermalHeight(quote, company, profile) {
   height += lineHeight(baseSize + 2) + 10 + 8
   if (quote.notes) height += lineHeight(baseSize - 1) * (1 + lines(quote.notes)) + 10
   height += 1 + 8 + lineHeight(baseSize) + 8
+  height += 4 + 3 * lineHeight(6) + 8
   return Math.min(20_000, Math.ceil(height))
 }
 
@@ -108,7 +110,7 @@ function renderThermal(doc, quote, company, profile) {
   y = doc.y + 3
   doc.font('Helvetica').fontSize(baseSize - 1).fillColor(MUTED).text(dateFormatter.format(new Date(quote.date)), contentX, y, { width: contentWidth, align: 'center' })
   y = doc.y + 8
-  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
   y += 8
 
   const storeDetails = quote.store.mode === 'new'
@@ -133,7 +135,7 @@ function renderThermal(doc, quote, company, profile) {
     y = doc.y + 2
   }
   y += 6
-  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
   y += 8
 
   for (const item of quote.items) {
@@ -158,9 +160,10 @@ function renderThermal(doc, quote, company, profile) {
     doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize - 1).text(quote.notes, contentX, y, { width: contentWidth })
     y = doc.y + 8
   }
-  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#B9C4D3').stroke()
+  doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.5).strokeColor('#000000').stroke()
   y += 8
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(baseSize).text('Gracias por preferirnos', contentX, y, { width: contentWidth, align: 'center' })
+  doc.fillColor(MUTED).font('Helvetica').fontSize(6).text(PAYMENT_DISCLAIMER, contentX, doc.y + 4, { width: contentWidth, align: 'center' })
 }
 
 function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, continuation = false) {
@@ -187,7 +190,7 @@ function drawLetterHeader(doc, quote, company, profile, margin, pageWidth, conti
 
   const isNewStore = quote.store.mode === 'new'
   const customerBoxHeight = isNewStore ? 104 : 66
-  doc.roundedRect(margin, y, contentWidth, customerBoxHeight, 7).fill(PALE)
+  doc.roundedRect(margin, y, contentWidth, customerBoxHeight, 7).lineWidth(0.6).fillAndStroke(PALE, NAVY)
   doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(8).text('CLIENTE', margin + 12, y + 9)
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text(quote.store.name, margin + 12, y + 23, { width: contentWidth - 24 })
   if (isNewStore) {
@@ -250,7 +253,7 @@ function renderLetter(doc, quote, company, profile) {
       y = drawLetterHeader(doc, quote, company, profile, margin, pageWidth, true)
       y = drawTableHeader(doc, margin, y, widths) + 4
     }
-    if (pageNumber % 2 === 0) doc.rect(margin, y, contentWidth, rowHeight).fill('#F4F7FA')
+    if (pageNumber % 2 === 0) doc.rect(margin, y, contentWidth, rowHeight).fill('#FFFFFF')
     const textY = y + 7
     doc.fillColor(NAVY).font('Helvetica').fontSize(9).text(item.cheeseName, margin + 7, textY, { width: widths.name - 14, height: rowHeight - 8 })
     const quantityX = margin + widths.name
@@ -260,7 +263,7 @@ function renderLetter(doc, quote, company, profile) {
     const subtotalX = unitX + widths.unitPrice
     doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(8.5).text(cop.format(item.lineTotal), subtotalX, textY, { width: widths.subtotal - 8, align: 'right' })
     y += rowHeight
-    doc.moveTo(margin, y).lineTo(margin + contentWidth, y).lineWidth(0.4).strokeColor('#D9E0E8').stroke()
+    doc.moveTo(margin, y).lineTo(margin + contentWidth, y).lineWidth(0.4).strokeColor('#000000').stroke()
   }
 
   const noteHeight = quote.notes ? Math.max(38, doc.heightOfString(quote.notes, { width: contentWidth - 20, fontSize: 9 }) + 25) : 0
@@ -270,7 +273,7 @@ function renderLetter(doc, quote, company, profile) {
     y = drawLetterHeader(doc, quote, company, profile, margin, pageWidth, true)
   }
   y += 16
-  doc.roundedRect(margin + contentWidth * 0.53, y, contentWidth * 0.47, 39, 6).fill(PALE)
+  doc.roundedRect(margin + contentWidth * 0.53, y, contentWidth * 0.47, 39, 6).lineWidth(0.6).fillAndStroke(PALE, NAVY)
   doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(11).text('TOTAL', margin + contentWidth * 0.55, y + 13)
   doc.fillColor(BRAND).fontSize(15).text(cop.format(quote.total), margin + contentWidth * 0.55, y + 10, { width: contentWidth * 0.41, align: 'right' })
   y += 54
@@ -281,7 +284,9 @@ function renderLetter(doc, quote, company, profile) {
     doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(quote.notes, margin, y, { width: contentWidth })
     y = doc.y + 12
   }
-  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text('Gracias por preferirnos', margin, Math.min(y + 6, pageHeight - margin - 25), { width: contentWidth, align: 'center' })
+  const thanksY = Math.min(y + 6, pageHeight - margin - 38)
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text('Gracias por preferirnos', margin, thanksY, { width: contentWidth, align: 'center' })
+  doc.fillColor(MUTED).font('Helvetica').fontSize(6).text(PAYMENT_DISCLAIMER, margin, thanksY + 13, { width: contentWidth, align: 'center' })
 
   if (doc.bufferedPageRange) {
     const range = doc.bufferedPageRange()
