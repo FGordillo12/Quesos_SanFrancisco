@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../AuthContext'
 import { AlertModal } from '../components/AlertModal'
@@ -7,12 +7,27 @@ import { AlertModal } from '../components/AlertModal'
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const emptyStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
 const emptyCheese = { name: '', description: '', unit: 'kg' }
+const backHomeClass = 'inline-flex cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none'
 
-function CatalogHeader({ title, description, children }) {
+function CatalogHeader({ title, description, children, onBack }) {
   return <header className="mx-auto mb-6 flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-    <div><Link to="/" className="text-sm font-bold text-brand hover:text-brand-dark">← Volver al inicio</Link><h1 className="mt-3 text-3xl font-extrabold">{title}</h1><p className="mt-1 text-sm text-slate-600">{description}</p></div>
+    <div><Link to="/" onClick={(event) => { if (onBack?.()) event.preventDefault() }} className={backHomeClass}>Volver al inicio</Link><h1 className="mt-3 text-3xl font-extrabold">{title}</h1><p className="mt-1 text-sm text-slate-600">{description}</p></div>
     {children}
   </header>
+}
+
+function ConfirmModal({ title = '¿Descartar cambios?', message, confirmLabel = 'Descartar cambios', cancelLabel = 'Seguir editando', onConfirm, onCancel }) {
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
+    <section role="alertdialog" aria-modal="true" aria-labelledby="discard-title" aria-describedby="discard-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-xl font-bold text-amber-700" aria-hidden="true">!</div>
+      <h2 id="discard-title" className="mt-4 text-xl font-extrabold">{title}</h2>
+      <p id="discard-description" className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button type="button" onClick={onCancel} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50">{cancelLabel}</button>
+        <button type="button" onClick={onConfirm} className="cursor-pointer rounded-xl bg-rose-600 px-4 py-2.5 font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-rose-700 active:translate-y-0 active:scale-95">{confirmLabel}</button>
+      </div>
+    </section>
+  </div>
 }
 
 function Field({ label, children }) {
@@ -39,15 +54,22 @@ function AdminOnlyNote() {
 
 export function StoresPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
   const [stores, setStores] = useState([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('active')
   const [form, setForm] = useState(emptyStore)
+  const [formSnapshot, setFormSnapshot] = useState(emptyStore)
   const [editingId, setEditingId] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const formDirty = formOpen && JSON.stringify(form) !== JSON.stringify(formSnapshot)
 
   async function loadStores() {
     setLoading(true)
@@ -60,24 +82,64 @@ export function StoresPage() {
   useEffect(() => { loadStores() }, [status])
 
   function changeField(event) { setForm((value) => ({ ...value, [event.target.name]: event.target.value })) }
-  function beginEdit(store) {
-    setEditingId(store._id)
-    setForm(Object.fromEntries(Object.keys(emptyStore).map((key) => [key, store[key] || ''])))
-    setMessage('')
+  function openAdd() {
+    const freshForm = { ...emptyStore }
+    setEditingId(null); setForm(freshForm); setFormSnapshot(freshForm); setMessage(''); setError(false); setFormOpen(true)
   }
-  function cancelEdit() { setEditingId(null); setForm(emptyStore) }
+  function beginEdit(store) {
+    const nextForm = Object.fromEntries(Object.keys(emptyStore).map((key) => [key, store[key] || '']))
+    setEditingId(store._id)
+    setForm(nextForm); setFormSnapshot(nextForm); setMessage(''); setError(false); setFormOpen(true)
+  }
+  function closeForm() {
+    setFormOpen(false); setConfirmDiscard(false); setPendingAction(null); setEditingId(null); setForm({ ...emptyStore }); setFormSnapshot({ ...emptyStore })
+  }
+  function requestCloseForm() {
+    if (saving) return
+    if (formDirty) { setPendingAction('close'); setConfirmDiscard(true); return }
+    closeForm()
+  }
+  function handleHomeClick() {
+    if (!formDirty) return false
+    setPendingAction('home'); setConfirmDiscard(true); return true
+  }
+  function discardFormChanges() {
+    const action = pendingAction
+    closeForm()
+    if (action === 'home') navigate('/')
+  }
+
+  useEffect(() => {
+    if (!formDirty) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [formDirty])
+  useEffect(() => {
+    if (!formOpen) return undefined
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return
+      if (confirmDiscard) { setConfirmDiscard(false); setPendingAction(null) }
+      else requestCloseForm()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [formOpen, formDirty, confirmDiscard])
 
   async function save(event) {
     event.preventDefault()
     setMessage('')
     setError(false)
+    setSaving(true)
     try {
       if (editingId) await api.put(`/stores/${editingId}`, form)
       else await api.post('/stores', form)
       setMessage(editingId ? 'Almacén actualizado.' : 'Almacén agregado.')
-      cancelEdit()
+      setError(false)
+      closeForm()
       await loadStores()
     } catch (requestError) { setError(true); setMessage(getError(requestError, 'No se pudo guardar el almacén.')) }
+    finally { setSaving(false) }
   }
 
   async function deactivate(store) {
@@ -102,14 +164,15 @@ export function StoresPage() {
   }, [search, stores])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Almacenes" description="Administra los establecimientos registrados y su información de contacto." />
-    <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <CatalogHeader title="Almacenes" description="Administra los establecimientos registrados y su información de contacto." onBack={handleHomeClick}>
+      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir almacén</button>}
+    </CatalogHeader>
+    <section className="mx-auto max-w-6xl">
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
           <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, NIT, ciudad o contacto" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
-        <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando almacenes…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay almacenes para mostrar.</p> : <div className="space-y-3">
           {filtered.map((store) => <article key={store._id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -120,9 +183,14 @@ export function StoresPage() {
           </article>)}
         </div>}
       </div>
-      <aside className="h-fit rounded-2xl bg-white p-5 shadow-card sm:p-6">
-        <h2 className="mb-4 text-lg font-extrabold">{editingId ? 'Editar almacén' : 'Agregar almacén'}</h2>
-        {isAdmin ? <form onSubmit={save} className="space-y-3">
+    </section>
+    {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-5" onMouseDown={(event) => { if (event.target === event.currentTarget) requestCloseForm() }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="store-form-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div><h2 id="store-form-title" className="text-xl font-extrabold">{editingId ? 'Editar almacén' : 'Agregar almacén'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de almacenes.</p></div>
+          <button type="button" onClick={requestCloseForm} aria-label="Cerrar formulario" className="cursor-pointer rounded-lg px-2 py-1 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">×</button>
+        </div>
+        <form onSubmit={save} className="space-y-3">
           <TextField label="Nombre del almacén" name="name" value={form.name} onChange={changeField} required maxLength={120} />
           <TextField label="NIT o cédula" name="nit" value={form.nit} onChange={changeField} maxLength={30} />
           <TextField label="Dirección" name="address" value={form.address} onChange={changeField} required maxLength={200} />
@@ -130,10 +198,12 @@ export function StoresPage() {
           <TextField label="Teléfono" name="phone" value={form.phone} onChange={changeField} maxLength={40} />
           <TextField label="Correo" type="email" name="email" value={form.email} onChange={changeField} maxLength={254} />
           <TextField label="Persona de contacto" name="contactName" value={form.contactName} onChange={changeField} maxLength={120} />
-          <div className="flex gap-2 pt-2"><button type="submit" className="flex-1 rounded-xl bg-brand px-4 py-2.5 font-bold text-white hover:bg-brand-dark">{editingId ? 'Guardar cambios' : 'Agregar almacén'}</button>{editingId && <button type="button" onClick={cancelEdit} className="rounded-xl border border-slate-200 px-4 py-2.5 font-semibold">Cancelar</button>}</div>
-        </form> : <AdminOnlyNote />}
-      </aside>
-    </section>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar almacén'}</button></div>
+        </form>
+      </section>
+    </div>}
+    {confirmDiscard && <ConfirmModal message="Tienes cambios sin guardar. Si sales ahora, se perderán." onCancel={() => { setConfirmDiscard(false); setPendingAction(null) }} onConfirm={discardFormChanges} />}
+    <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
   </main>
 }
 
@@ -211,6 +281,7 @@ export function CheesesPage() {
 
 export function PricesPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
   const [scope, setScope] = useState('general')
   const [stores, setStores] = useState([])
@@ -221,6 +292,9 @@ export function PricesPage() {
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const pricesDirty = rows.some((row) => row.value !== (row.price == null ? '' : String(row.price)))
 
   useEffect(() => {
     api.get('/stores', { params: { status: 'active' } }).then(({ data }) => {
@@ -248,6 +322,44 @@ export function PricesPage() {
     } catch { setHistory([]) }
   }
   useEffect(() => { loadHistory() }, [scope, storeId])
+
+  useEffect(() => {
+    if (!pricesDirty) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [pricesDirty])
+
+  function requestAction(action) {
+    if (pricesDirty) { setPendingAction(action); setConfirmDiscard(true); return true }
+    applyAction(action)
+    return false
+  }
+  function applyAction(action) {
+    if (!action) return
+    if (action.type === 'home') { navigate('/'); return }
+    setRows([])
+    setHistory([])
+    setMessage('')
+    setError(false)
+    if (action.type === 'scope') setScope(action.value)
+    if (action.type === 'store') setStoreId(action.value)
+  }
+  function discardPendingAction() {
+    const action = pendingAction
+    setConfirmDiscard(false)
+    setPendingAction(null)
+    applyAction(action)
+  }
+
+  useEffect(() => {
+    if (!confirmDiscard) return undefined
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') { setConfirmDiscard(false); setPendingAction(null) }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [confirmDiscard])
 
   function updatePrice(cheeseId, value) {
     setRows((current) => current.map((row) => row.cheeseId === cheeseId ? { ...row, value } : row))
@@ -278,15 +390,15 @@ export function PricesPage() {
   const storeLabel = useMemo(() => stores.find((store) => store._id === storeId)?.name || '', [stores, storeId])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Precios" description="Configura la tarifa general y los valores particulares por almacén." />
+    <CatalogHeader title="Precios" description="Configura la tarifa general y los valores particulares por almacén." onBack={() => requestAction({ type: 'home' })} />
     <section className="mx-auto max-w-6xl space-y-6">
       <div className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField label="Tipo de tarifa" name="scope" value={scope} onChange={(event) => setScope(event.target.value)}>
+          <SelectField label="Tipo de tarifa" name="scope" value={scope} onChange={(event) => requestAction({ type: 'scope', value: event.target.value })}>
             <option value="general">Tarifa general · almacenes nuevos</option>
             <option value="store">Tarifa particular · almacén registrado</option>
           </SelectField>
-          {scope === 'store' && <SelectField label="Almacén" name="storeId" value={storeId} onChange={(event) => setStoreId(event.target.value)}>
+          {scope === 'store' && <SelectField label="Almacén" name="storeId" value={storeId} onChange={(event) => requestAction({ type: 'store', value: event.target.value })}>
             {stores.length === 0 ? <option value="">No hay almacenes activos</option> : stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}
           </SelectField>}
         </div>
@@ -301,7 +413,7 @@ export function PricesPage() {
             <tbody>{rows.map((row) => <tr key={row.cheeseId} className="border-b border-slate-100 last:border-0"><td className="px-3 py-3 font-semibold">{row.name}</td><td className="px-3 py-3 text-slate-600">{row.unit}</td><td className="px-3 py-3 text-slate-600">{row.price == null ? 'Sin definir' : money.format(row.price)}</td><td className="px-3 py-3"><input aria-label={`Precio COP para ${row.name}`} type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={row.value} onChange={(event) => updatePrice(row.cheeseId, event.target.value)} disabled={!isAdmin} placeholder="Ej. 25000" className="w-44 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:bg-slate-50 disabled:text-slate-500" /></td></tr>)}</tbody>
           </table>
         </div>}
-        {isAdmin && rows.length > 0 && <div className="mt-5 flex justify-end"><button disabled={saving || loading} onClick={savePrices} className="rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar cambios'}</button></div>}
+        {isAdmin && rows.length > 0 && <div className="mt-5 flex justify-end"><button disabled={saving || loading} onClick={savePrices} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar cambios'}</button></div>}
         {!isAdmin && <p className="mt-4 text-sm text-slate-500">Los vendedores pueden consultar precios, pero no modificarlos.</p>}
       </div>
 
@@ -313,5 +425,6 @@ export function PricesPage() {
         </div>}
       </div>
     </section>
+    {confirmDiscard && <ConfirmModal message="Tienes cambios de precios sin guardar. Si continúas, se perderán." onCancel={() => { setConfirmDiscard(false); setPendingAction(null) }} onConfirm={discardPendingAction} />}
   </main>
 }

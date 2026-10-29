@@ -64,7 +64,7 @@ export function CompanySettingsPage() {
   const input = 'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:bg-slate-100'
   return <main className="min-h-screen bg-primary px-4 py-8 text-ink sm:px-8">
     <section className="mx-auto max-w-4xl rounded-3xl bg-white p-6 shadow-card sm:p-10">
-      <Link to="/" className="text-sm font-bold text-brand">← Volver al inicio</Link>
+      <Link to="/" className="inline-flex cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none">Volver al inicio</Link>
       <h1 className="mt-5 text-3xl font-extrabold">Empresa e impresión</h1>
       <p className="mt-2 text-sm text-slate-600">Estos datos aparecerán en los PDF. El perfil se guarda en cada cotización nueva.</p>
       <AlertModal message={error || notice} variant={error ? 'error' : 'success'} onClose={() => { setError(''); setNotice('') }} />
