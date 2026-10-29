@@ -459,23 +459,24 @@ export function PricesPage() {
 
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
         <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
-        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando matriz de precios…</p> : rows.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega quesos activos para configurar la tarifa.</p> : <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Queso</th><th className="px-3 py-3">Unidad</th><th className="px-3 py-3">Precio actual</th><th className="px-3 py-3">Nuevo precio COP</th></tr></thead>
-            <tbody>{rows.map((row) => <tr key={row.cheeseId} className="border-b border-slate-100 last:border-0"><td className="px-3 py-3 font-semibold">{row.name}</td><td className="px-3 py-3 text-slate-600">{row.unit}</td><td className="px-3 py-3 text-slate-600">{row.price == null ? 'Sin definir' : money.format(row.price)}</td><td className="px-3 py-3"><input aria-label={`Precio COP para ${row.name}`} type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={row.value} onChange={(event) => updatePrice(row.cheeseId, event.target.value)} disabled={!isAdmin} placeholder="Ej. 25000" className="w-44 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:bg-slate-50 disabled:text-slate-500" /></td></tr>)}</tbody>
-          </table>
+        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando matriz de precios…</p> : rows.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega quesos activos para configurar la tarifa.</p> : <div className="space-y-3">
+          {rows.map((row) => <article key={row.cheeseId} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_100px_160px_minmax(190px,220px)] md:items-center">
+            <div className="min-w-0"><h2 className="break-words font-bold leading-5">{row.name}</h2><p className="mt-1 text-xs text-slate-500">Producto al que corresponde este precio</p></div>
+            <div><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 md:hidden">Unidad</span><span className="text-sm text-slate-700">{row.unit}</span></div>
+            <div><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 md:hidden">Precio actual</span><span className="text-sm text-slate-700">{row.price == null ? 'Sin definir' : money.format(row.price)}</span></div>
+            <label className="block text-sm font-semibold">{isAdmin ? 'Nuevo precio (COP)' : 'Precio (COP)'}<input aria-label={`Precio COP para ${row.name}`} type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={row.value} onChange={(event) => updatePrice(row.cheeseId, event.target.value)} disabled={!isAdmin} placeholder="Ej. 25000" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 font-normal outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:bg-slate-50 disabled:text-slate-500" /></label>
+          </article>)}
         </div>}
         {isAdmin && rows.length > 0 && <div className="mt-5 flex justify-end"><button disabled={saving || loading} onClick={savePrices} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar cambios'}</button></div>}
         {!isAdmin && <p className="mt-4 text-sm text-slate-500">Los vendedores pueden consultar precios, pero no modificarlos.</p>}
       </div>
 
-      <div className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-        <h2 className="text-lg font-extrabold">Historial de cambios</h2>
-        <p className="mt-1 text-sm text-slate-600">Últimos cambios de {scope === 'general' ? 'la tarifa general' : storeLabel || 'el almacén'}.</p>
-        {history.length === 0 ? <p className="mt-4 text-sm text-slate-500">Todavía no hay cambios registrados.</p> : <div className="mt-4 divide-y divide-slate-100">
+      <details className="group rounded-2xl bg-white p-5 shadow-card sm:p-6">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"><span><span className="block text-lg font-extrabold">Historial de cambios</span><span className="mt-1 block text-sm font-normal text-slate-600">{scope === 'general' ? 'Tarifa general' : storeLabel || 'Almacén'} · {history.length} registro(s)</span></span><span aria-hidden="true" className="text-xl text-slate-500 transition-transform group-open:rotate-180">⌄</span></summary>
+        {history.length === 0 ? <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-500">Todavía no hay cambios registrados.</p> : <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
           {history.map((item) => <div key={item._id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><span className="font-semibold">{item.cheese?.name || 'Queso'}</span><span className="text-slate-500"> · {item.changedBy?.name || 'Usuario'} · {new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(item.changedAt))}</span></div><p className="font-semibold">{item.oldPrice == null ? 'Nuevo' : money.format(item.oldPrice)} → {money.format(item.newPrice)}</p></div>)}
         </div>}
-      </div>
+      </details>
     </section>
     {confirmDiscard && <ConfirmModal message="Tienes cambios de precios sin guardar. Si continúas, se perderán." onCancel={() => { setConfirmDiscard(false); setPendingAction(null) }} onConfirm={discardPendingAction} />}
   </main>
