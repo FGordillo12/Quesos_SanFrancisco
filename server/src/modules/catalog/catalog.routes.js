@@ -102,7 +102,7 @@ cheeseRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(
 cheeseRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), async (req, res, next) => {
   try {
     const cheese = await Cheese.findByIdAndUpdate(req.validatedParams.id, { $set: { isActive: false } }, { new: true })
-    if (!cheese) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'Queso no encontrado.')
+    if (!cheese) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'queso no encontrado.')
     return res.json({ ok: true, data: cheese, error: null })
   } catch (error) { return next(error) }
 })
