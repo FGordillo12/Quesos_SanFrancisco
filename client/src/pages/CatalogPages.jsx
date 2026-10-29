@@ -209,15 +209,22 @@ export function StoresPage() {
 
 export function CheesesPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
   const [cheeses, setCheeses] = useState([])
   const [status, setStatus] = useState('active')
   const [search, setSearch] = useState('')
   const [form, setForm] = useState(emptyCheese)
+  const [formSnapshot, setFormSnapshot] = useState(emptyCheese)
   const [editingId, setEditingId] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const formDirty = formOpen && JSON.stringify(form) !== JSON.stringify(formSnapshot)
 
   async function loadCheeses() {
     setLoading(true)
@@ -228,16 +235,56 @@ export function CheesesPage() {
   useEffect(() => { loadCheeses() }, [status])
 
   function changeField(event) { setForm((value) => ({ ...value, [event.target.name]: event.target.value })) }
-  function edit(cheese) { setEditingId(cheese._id); setForm({ name: cheese.name, description: cheese.description || '', unit: cheese.unit }); setMessage('') }
-  function cancel() { setEditingId(null); setForm(emptyCheese) }
+  function openAdd() {
+    const freshForm = { ...emptyCheese }
+    setEditingId(null); setForm(freshForm); setFormSnapshot(freshForm); setMessage(''); setError(false); setFormOpen(true)
+  }
+  function edit(cheese) {
+    const nextForm = { name: cheese.name, description: cheese.description || '', unit: cheese.unit }
+    setEditingId(cheese._id); setForm(nextForm); setFormSnapshot(nextForm); setMessage(''); setError(false); setFormOpen(true)
+  }
+  function closeForm() {
+    setFormOpen(false); setConfirmDiscard(false); setPendingAction(null); setEditingId(null); setForm({ ...emptyCheese }); setFormSnapshot({ ...emptyCheese })
+  }
+  function requestCloseForm() {
+    if (saving) return
+    if (formDirty) { setPendingAction('close'); setConfirmDiscard(true); return }
+    closeForm()
+  }
+  function handleHomeClick() {
+    if (!formDirty) return false
+    setPendingAction('home'); setConfirmDiscard(true); return true
+  }
+  function discardFormChanges() {
+    const action = pendingAction
+    closeForm()
+    if (action === 'home') navigate('/')
+  }
+  useEffect(() => {
+    if (!formDirty) return undefined
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [formDirty])
+  useEffect(() => {
+    if (!formOpen) return undefined
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return
+      if (confirmDiscard) { setConfirmDiscard(false); setPendingAction(null) }
+      else requestCloseForm()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [formOpen, formDirty, confirmDiscard, saving])
   async function save(event) {
-    event.preventDefault(); setMessage(''); setError(false)
+    event.preventDefault(); setMessage(''); setError(false); setSaving(true)
     try {
       if (editingId) await api.put(`/cheeses/${editingId}`, form)
       else await api.post('/cheeses', form)
       setMessage(editingId ? 'Queso actualizado.' : 'Queso agregado.')
-      cancel(); await loadCheeses()
+      closeForm(); await loadCheeses()
     } catch (requestError) { setMessage(getError(requestError, 'No se pudo guardar el queso.')); setError(true) }
+    finally { setSaving(false) }
   }
   async function deactivate(cheese) {
     if (!window.confirm(`¿Desactivar ${cheese.name}?`)) return
@@ -251,31 +298,36 @@ export function CheesesPage() {
   const filtered = useMemo(() => cheeses.filter((cheese) => cheese.name.toLocaleLowerCase('es-CO').includes(search.trim().toLocaleLowerCase('es-CO'))), [cheeses, search])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Tipos de queso" description="Define los productos y sus unidades para las cotizaciones." />
-    <section className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <CatalogHeader title="Tipos de queso" description="Define los productos y sus unidades para las cotizaciones." onBack={handleHomeClick}>
+      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir queso</button>}
+    </CatalogHeader>
+    <section className="mx-auto max-w-6xl">
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
           <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre del queso" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
-        <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando productos…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay productos para mostrar.</p> : <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((cheese) => <article key={cheese._id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex items-start justify-between gap-2"><div><h2 className="font-bold">{cheese.name}</h2><p className="mt-1 text-sm text-slate-600">{cheese.description || 'Sin descripción'} · {cheese.unit === 'kg' ? 'Kilogramo' : 'Unidad'}</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${cheese.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{cheese.isActive ? 'Activo' : 'Inactivo'}</span></div>
-            {isAdmin && <div className="mt-3 flex gap-2"><button onClick={() => edit(cheese)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50">Editar</button>{cheese.isActive ? <button onClick={() => deactivate(cheese)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-50">Desactivar</button> : <button onClick={() => activate(cheese)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Activar</button>}</div>}
+            {isAdmin && <div className="mt-3 flex gap-2"><button type="button" onClick={() => edit(cheese)} className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50">Editar</button>{cheese.isActive ? <button type="button" onClick={() => deactivate(cheese)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-50">Desactivar</button> : <button type="button" onClick={() => activate(cheese)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Activar</button>}</div>}
           </article>)}
         </div>}
       </div>
-      <aside className="h-fit rounded-2xl bg-white p-5 shadow-card sm:p-6">
-        <h2 className="mb-4 text-lg font-extrabold">{editingId ? 'Editar queso' : 'Agregar queso'}</h2>
+    </section>
+    {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-5" onMouseDown={(event) => { if (event.target === event.currentTarget) requestCloseForm() }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="cheese-form-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+        <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="cheese-form-title" className="text-xl font-extrabold">{editingId ? 'Editar queso' : 'Agregar queso'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de productos.</p></div><button type="button" onClick={requestCloseForm} aria-label="Cerrar formulario" className="cursor-pointer rounded-lg px-2 py-1 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">×</button></div>
         {isAdmin ? <form onSubmit={save} className="space-y-3">
           <TextField label="Nombre" name="name" value={form.name} onChange={changeField} required maxLength={100} />
           <TextField label="Descripción" name="description" value={form.description} onChange={changeField} maxLength={500} />
           <SelectField label="Unidad de medida" name="unit" value={form.unit} onChange={changeField}><option value="kg">Kilogramo (kg)</option><option value="und">Unidad (und)</option></SelectField>
-          <div className="flex gap-2 pt-2"><button type="submit" className="flex-1 rounded-xl bg-brand px-4 py-2.5 font-bold text-white hover:bg-brand-dark">{editingId ? 'Guardar cambios' : 'Agregar queso'}</button>{editingId && <button type="button" onClick={cancel} className="rounded-xl border border-slate-200 px-4 py-2.5 font-semibold">Cancelar</button>}</div>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar queso'}</button></div>
         </form> : <AdminOnlyNote />}
-      </aside>
-    </section>
+      </section>
+    </div>}
+    {confirmDiscard && <ConfirmModal message="Tienes cambios sin guardar. Si sales ahora, se perderán." onCancel={() => { setConfirmDiscard(false); setPendingAction(null) }} onConfirm={discardFormChanges} />}
+    <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
   </main>
 }
 
