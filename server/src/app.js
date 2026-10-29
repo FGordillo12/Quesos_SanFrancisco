@@ -2,7 +2,7 @@ import express from 'express'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import { env } from './config/env.js'
-import { databaseIsReady } from './config/database.js'
+import { connectDatabase, databaseIsReady } from './config/database.js'
 import { requestLogger } from './lib/logger.js'
 import { errorHandler, notFoundHandler } from './middleware/errors.js'
 import {
@@ -47,6 +47,17 @@ export function createApp() {
   app.use('/api', globalRateLimit)
   app.use('/api', csrfProtection)
 
+  // Vercel reuses warm functions but may start without an established MongoDB
+  // connection. Ensure it is ready before any API route accesses the database.
+  app.use('/api', async (req, res, next) => {
+    try {
+      if (!databaseIsReady()) await connectDatabase(env.mongoUri)
+      return next()
+    } catch (error) {
+      return next(error)
+    }
+  })
+
   app.get('/api/health', (req, res) => {
     const ready = databaseIsReady()
     return res.status(ready ? 200 : 503).json({ ok: ready, data: { status: ready ? 'ready' : 'database_unavailable' }, error: null })
@@ -62,3 +73,8 @@ export function createApp() {
   app.use(errorHandler)
   return app
 }
+
+// Vercel detects this file as the Express entry point and requires a default
+// export. Keep the named factory for the local server and tests.
+const app = createApp()
+export default app
