@@ -8,7 +8,7 @@ const BRAND = '#000000'
 const PALE = '#FFFFFF'
 const MUTED = '#333333'
 const PAYMENT_DISCLAIMER = 'Esta factura no constituye comprobante de pago ni paz y salvo.'
-const LOGO_PATH = fileURLToPath(new URL('../../../assets/logo.png', import.meta.url))
+const LOGO_PATH = fileURLToPath(new URL('../../../assets/logo-invoice.png', import.meta.url))
 const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const dateFormatter = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'America/Bogota' })
 const mmToPt = (mm) => mm * 72 / 25.4
@@ -22,16 +22,21 @@ function normalizedProfile(profile = {}) {
   }
 }
 
+function thermalBaseSize(profile) {
+  const narrow = profile.format === 'thermal58'
+  return Math.min(Math.max(profile.fontSize - 0.5, 7.5), narrow ? 9 : 11)
+}
+
 function nonEmpty(parts) { return parts.filter((value) => typeof value === 'string' && value.trim()) }
 
 function thermalHeight(quote, company, profile) {
   const narrow = profile.format === 'thermal58'
-  const baseSize = Math.min(profile.fontSize, narrow ? 10 : 12)
+  const baseSize = thermalBaseSize(profile)
   const charsPerLine = narrow ? Math.max(20, Math.floor(27 * 9 / baseSize)) : Math.max(34, Math.floor(46 * 10 / baseSize))
   const lines = (value) => Math.max(1, Math.ceil(String(value || '').length / charsPerLine))
   const lineHeight = (size) => size * 1.35
   const margin = mmToPt(profile.marginMm)
-  const logoSize = narrow ? mmToPt(30) : 44
+  const logoSize = narrow ? mmToPt(20) : 38
   let height = margin * 2 + 8 + lineHeight(baseSize + 2) + 3
 
   if (profile.showLogo && existsSync(LOGO_PATH)) height += logoSize + 7
@@ -51,9 +56,8 @@ function thermalHeight(quote, company, profile) {
   height += storeLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0) + 6 + 8 + 8
 
   for (const item of quote.items) {
-    const detail = `${item.quantity} ${item.unit} × ${cop.format(item.unitPrice)} / ${item.unit}`
     height += lines(item.cheeseName) * lineHeight(baseSize) + 2
-    height += lines(detail) * lineHeight(baseSize - 1) + 2
+    height += lineHeight(baseSize + 0.5) + 2
     height += lineHeight(baseSize) + 7
   }
 
@@ -87,11 +91,11 @@ function renderThermal(doc, quote, company, profile) {
   // Center that area on the paper and keep artwork within its 48 mm width.
   const contentWidth = profile.format === 'thermal58' ? mmToPt(48) : pageWidth - margin * 2
   const contentX = profile.format === 'thermal58' ? mmToPt((57 - 48) / 2) : margin
-  const baseSize = Math.min(profile.fontSize, widthMm === 57 ? 10 : 12)
+  const baseSize = thermalBaseSize(profile)
   let y = margin
 
   if (profile.showLogo && existsSync(LOGO_PATH)) {
-    const logoSize = widthMm === 57 ? mmToPt(30) : 44
+    const logoSize = widthMm === 57 ? mmToPt(20) : 38
     doc.image(LOGO_PATH, contentX + (contentWidth - logoSize) / 2, y, { fit: [logoSize, logoSize] })
     y += logoSize + 7
   }
@@ -141,10 +145,14 @@ function renderThermal(doc, quote, company, profile) {
   for (const item of quote.items) {
     doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text(item.cheeseName, contentX, y, { width: contentWidth })
     y = doc.y + 2
-    const detail = `${item.quantity} ${item.unit} × ${cop.format(item.unitPrice)} / ${item.unit}`
-    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 1).text(detail, contentX, y, { width: contentWidth })
+    const quantityWidth = contentWidth * 0.53
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 0.5)
+      .text(`Cant.: ${item.quantity} ${item.unit}`, contentX, y, { width: quantityWidth, lineBreak: false })
+    doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 0.5)
+      .text(`Unit.: ${cop.format(item.unitPrice)}`, contentX + quantityWidth, y + 0.5, { width: contentWidth - quantityWidth, align: 'right', lineBreak: false })
     y = doc.y + 2
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text(cop.format(item.lineTotal), contentX, y, { width: contentWidth, align: 'right' })
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize)
+      .text(`Subtotal: ${cop.format(item.lineTotal)}`, contentX, y, { width: contentWidth, align: 'right' })
     y = doc.y + 7
   }
 
