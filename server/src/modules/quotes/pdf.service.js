@@ -24,7 +24,7 @@ function normalizedProfile(profile = {}) {
 
 function thermalBaseSize(profile) {
   const narrow = profile.format === 'thermal58'
-  return Math.min(Math.max(profile.fontSize - 0.5, 7.5), narrow ? 9 : 11)
+  return Math.min(Math.max(profile.fontSize - 1.5, 6.5), narrow ? 8.5 : 10.5)
 }
 
 function nonEmpty(parts) { return parts.filter((value) => typeof value === 'string' && value.trim()) }
@@ -56,9 +56,9 @@ function thermalHeight(quote, company, profile) {
   height += storeLines.reduce((sum, value) => sum + lines(value) * lineHeight(baseSize - 1) + 2, 0) + 6 + 8 + 8
 
   for (const item of quote.items) {
-    height += lines(item.cheeseName) * lineHeight(baseSize) + 2
-    height += lineHeight(baseSize + 0.5) + 2
-    height += lineHeight(baseSize) + 7
+    height += lines(item.cheeseName) * lineHeight(baseSize) + 1
+    height += lineHeight(baseSize + 0.5) + 1
+    height += lineHeight(baseSize) + 4
   }
 
   height += lineHeight(baseSize + 2) + 10 + 8
@@ -143,17 +143,17 @@ function renderThermal(doc, quote, company, profile) {
   y += 8
 
   for (const item of quote.items) {
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize).text(item.cheeseName, contentX, y, { width: contentWidth })
-    y = doc.y + 2
+    doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize).text(item.cheeseName, contentX, y, { width: contentWidth })
+    y = doc.y + 1
     const quantityWidth = contentWidth * 0.53
     doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize + 0.5)
-      .text(`Cant.: ${item.quantity} ${item.unit}`, contentX, y, { width: quantityWidth, lineBreak: false })
+      .text(`Cant: ${item.quantity} ${item.unit}`, contentX, y, { width: quantityWidth, lineBreak: false })
     doc.fillColor(MUTED).font('Helvetica').fontSize(baseSize - 0.5)
       .text(`Unit.: ${cop.format(item.unitPrice)}`, contentX + quantityWidth, y + 0.5, { width: contentWidth - quantityWidth, align: 'right', lineBreak: false })
-    y = doc.y + 2
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(baseSize)
+    y = doc.y + 1
+    doc.fillColor(NAVY).font('Helvetica').fontSize(baseSize)
       .text(`Subtotal: ${cop.format(item.lineTotal)}`, contentX, y, { width: contentWidth, align: 'right' })
-    y = doc.y + 7
+    y = doc.y + 4
   }
 
   doc.moveTo(contentX, y).lineTo(contentX + contentWidth, y).lineWidth(0.8).strokeColor(BRAND).stroke()

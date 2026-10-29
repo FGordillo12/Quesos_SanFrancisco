@@ -314,16 +314,16 @@ export function QuotePage() {
           {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay tipos de queso activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Quesos</Link>.</p>}
         </article>
 
-        <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
+        <article className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
           <h2 className="text-lg font-extrabold">Productos de la factura</h2>
           {items.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega uno o más quesos para calcular el total.</p> : <div className="mt-3 divide-y divide-slate-100">
             {items.map((item) => {
               const milli = toMilli(item.quantity) || 0
-              return <div key={item.cheeseId} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_130px_120px_40px] sm:items-center">
-                <div><p className="font-bold">{item.name}</p><p className="mt-1 text-xs text-slate-500">{money.format(item.unitPrice)} por {item.unit}</p></div>
-                <Field label="Cantidad"><input aria-label={`Cantidad de ${item.name}`} type="text" inputMode="decimal" value={item.quantity} onChange={(event) => updateQuantity(item.cheeseId, event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" /></Field>
-                <div><p className="text-xs text-slate-500">Subtotal</p><p className="font-extrabold">{milli ? money.format(lineTotal(item.unitPrice, milli)) : 'Revisa cantidad'}</p></div>
-                <button type="button" onClick={() => setItems((current) => current.filter((entry) => entry.cheeseId !== item.cheeseId))} aria-label={`Eliminar ${item.name}`} className="rounded-lg px-3 py-2 text-lg font-bold text-rose-700 hover:bg-rose-50">×</button>
+              return <div key={item.cheeseId} className="grid grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_130px_120px_40px] sm:gap-x-3 sm:py-4">
+                <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-sm font-semibold leading-5 sm:text-base">{item.name}</p><p className="mt-0.5 text-xs text-slate-500">{money.format(item.unitPrice)} por {item.unit}</p></div>
+                <button type="button" onClick={() => setItems((current) => current.filter((entry) => entry.cheeseId !== item.cheeseId))} aria-label={`Eliminar ${item.name}`} className="col-start-3 row-start-1 flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 p-0 text-base font-bold leading-none text-rose-700 hover:bg-rose-100 sm:col-start-4 sm:h-auto sm:w-auto sm:rounded-lg sm:px-3 sm:py-2 sm:text-lg">×</button>
+                <label className="col-start-1 row-start-2 block text-xs font-semibold text-ink sm:col-start-2 sm:row-start-1 sm:text-sm"><span className="mb-1 block">Cantidad</span><input aria-label={`Cantidad de ${item.name}`} type="text" inputMode="decimal" value={item.quantity} onChange={(event) => updateQuantity(item.cheeseId, event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" /></label>
+                <div className="col-start-2 row-start-2 self-end whitespace-nowrap pb-2 text-right sm:col-start-3 sm:row-start-1 sm:self-center sm:pb-0"><p className="text-xs text-slate-500">Subtotal</p><p className="text-sm font-extrabold sm:text-base">{milli ? money.format(lineTotal(item.unitPrice, milli)) : 'Revisa cantidad'}</p></div>
               </div>
             })}
           </div>}
