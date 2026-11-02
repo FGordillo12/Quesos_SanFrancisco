@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '')
+// En producción se usa el proxy del mismo dominio de Vercel (/api). Así el
+// navegador conserva y envía las cookies seguras de sesión entre visitas.
+const API_BASE_URL = (import.meta.env.PROD ? '/api' : import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/$/, '')
 export const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: 15000 })
 
 let csrfToken = null
