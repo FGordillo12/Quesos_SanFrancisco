@@ -18,7 +18,7 @@ const quoteItemSchema = new mongoose.Schema({
   sortOrder: { type: Number, min: 0, max: 100_000, default: 10_000 },
   quantity: { type: String, required: true, maxlength: 20 },
   quantityMilli: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
-  unit: { type: String, enum: ['kg', 'und'], required: true },
+  unit: { type: String, enum: ['und'], required: true },
   unitPrice: { type: Number, required: true, min: 1, max: 1_000_000_000, validate: Number.isSafeInteger },
   lineTotal: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
 }, { _id: false, strict: 'throw' })

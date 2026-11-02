@@ -9,10 +9,10 @@ function validQuote(store) {
     date: new Date(),
     store,
     items: [{
-      cheese: new mongoose.Types.ObjectId(), cheeseName: 'Queso Campesino', quantity: '1.25',
-      quantityMilli: 1250, unit: 'kg', unitPrice: 18000, lineTotal: 22500,
+      cheese: new mongoose.Types.ObjectId(), cheeseName: 'Queso Campesino', quantity: '1',
+      quantityMilli: 1000, unit: 'und', unitPrice: 18000, lineTotal: 18000,
     }],
-    total: 22500,
+    total: 18000,
     createdBy: new mongoose.Types.ObjectId(),
   })
 }

@@ -35,7 +35,7 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 ## Fase 5 — Cotizador
 
 - Una sola pantalla ofrece ambas opciones de destino: almacén registrado (tarifa particular) o almacén nuevo (snapshot solo en la cotización y tarifa general).
-- El vendedor agrega queso y cantidad. Para almacenes registrados se usa la tarifa particular; para almacenes nuevos se propone la tarifa general y se puede ajustar el precio por línea solo en esa cotización. Las cantidades de kg admiten hasta tres decimales y las unidades deben ser enteras.
+- El vendedor agrega queso y cantidad en unidades enteras. El gramaje forma parte del nombre de cada producto y no altera los cálculos. Para clientes registrados se usa la tarifa particular; para nuevos clientes se propone la tarifa general y se puede ajustar el precio por línea solo en esa factura.
 - La API consulta el catálogo y recalcula precios, subtotales y total usando aritmética entera; no acepta precios ni totales del navegador.
 - El consecutivo `QSF-000001` se asigna con contador atómico dentro de una transacción MongoDB. La cotización congela nombre, unidad, precio y subtotal de cada línea.
 - Vendedores solo consultan sus cotizaciones; administración puede consultar todas.

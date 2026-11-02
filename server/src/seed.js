@@ -29,7 +29,9 @@ try {
     const existing = await Cheese.findOne({ name: product.name }).collation({ locale: 'es', strength: 2 })
     const sortOrder = (index + 1) * 10
     if (existing) {
-      if (existing.sortOrder !== sortOrder) await Cheese.updateOne({ _id: existing._id }, { $set: { sortOrder } })
+      if (existing.sortOrder !== sortOrder || existing.unit !== 'und') {
+        await Cheese.updateOne({ _id: existing._id }, { $set: { sortOrder, unit: 'und' } })
+      }
       continue
     }
     await Cheese.create({ ...product, sortOrder })

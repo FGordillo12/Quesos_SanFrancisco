@@ -17,7 +17,7 @@ const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
 }, 'Fecha inválida.')
 const itemSchema = z.object({
   cheeseId: objectId,
-  quantity: z.string().regex(/^\d{1,7}(?:\.\d{1,3})?$/),
+  quantity: z.string().regex(/^\d{1,7}$/),
 }).strict()
 const newStoreItemSchema = itemSchema.extend({
   unitPrice: z.number().int().min(1).max(1_000_000_000).optional(),

@@ -14,17 +14,12 @@ function currentBogotaDate() {
 }
 
 function toMilli(value) {
-  if (!/^\d{1,7}(?:\.\d{1,3})?$/.test(value)) return null
-  const [whole, fraction = ''] = value.split('.')
-  const result = BigInt(whole) * 1000n + BigInt((fraction + '000').slice(0, 3))
+  if (!/^\d{1,7}$/.test(value)) return null
+  const result = BigInt(value) * 1000n
   return result > 0n && result <= 1_000_000_000n ? Number(result) : null
 }
 
-function fromMilli(value) {
-  const whole = Math.floor(value / 1000)
-  const fraction = value % 1000
-  return fraction === 0 ? String(whole) : `${whole}.${String(fraction).padStart(3, '0').replace(/0+$/, '')}`
-}
+function fromMilli(value) { return String(Math.round(value / 1000)) }
 
 function lineTotal(price, quantityMilli) {
   return Number((BigInt(price) * BigInt(quantityMilli) + 500n) / 1000n)
@@ -139,8 +134,8 @@ export function QuotePage() {
       price = row.price
     }
     const quantityMilli = toMilli(quantity)
-    if (!quantityMilli || (selectedCheese.unit === 'und' && quantityMilli % 1000 !== 0)) {
-      setError(selectedCheese.unit === 'und' ? 'La cantidad de unidades debe ser un entero positivo.' : 'Ingresa una cantidad positiva con máximo 3 decimales.')
+    if (!quantityMilli) {
+      setError('La cantidad de unidades debe ser un entero positivo.')
       return
     }
     if (lineTotal(price, quantityMilli) < 1) { setError('La cantidad produce un subtotal menor a $1 COP.'); return }
@@ -180,7 +175,7 @@ export function QuotePage() {
     }
     for (const item of items) {
       const quantityMilli = toMilli(item.quantity)
-      if (!quantityMilli || (item.unit === 'und' && quantityMilli % 1000 !== 0) || lineTotal(item.unitPrice, quantityMilli) < 1) {
+      if (!quantityMilli || lineTotal(item.unitPrice, quantityMilli) < 1) {
         setError(`Revisa la cantidad de ${item.name}.`)
         setFeedback({ variant: 'error', message: `Revisa la cantidad de ${item.name}.` })
         return
@@ -309,7 +304,7 @@ export function QuotePage() {
           {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
             <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{availableCheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
             {mode === 'new' && <Input label="Precio unitario COP" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder="Ej. 25000" />}
-            <Input label={`Cantidad${selectedCheese ? ` (${selectedCheese.unit})` : ''}`} name="quantity" type="text" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={selectedCheese?.unit === 'und' ? '1' : '1.250'} />
+            <Input label={`Cantidad${selectedCheese ? ' (und)' : ''}`} name="quantity" type="text" inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="1" />
             <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
           </div>}
           {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del cliente: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
@@ -325,7 +320,7 @@ export function QuotePage() {
               return <div key={item.cheeseId} className="grid grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_130px_120px_40px] sm:gap-x-3 sm:py-4">
                 <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-sm font-semibold leading-5 sm:text-base">{item.name}</p><p className="mt-0.5 text-xs text-slate-500">{money.format(item.unitPrice)} por {item.unit}</p></div>
                 <button type="button" onClick={() => setItems((current) => current.filter((entry) => entry.cheeseId !== item.cheeseId))} aria-label={`Eliminar ${item.name}`} className="col-start-3 row-start-1 flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 p-0 text-base font-bold leading-none text-rose-700 hover:bg-rose-100 sm:col-start-4 sm:h-auto sm:w-auto sm:rounded-lg sm:px-3 sm:py-2 sm:text-lg">×</button>
-                <label className="col-start-1 row-start-2 block text-xs font-semibold text-ink sm:col-start-2 sm:row-start-1 sm:text-sm"><span className="mb-1 block">Cantidad</span><input aria-label={`Cantidad de ${item.name}`} type="text" inputMode="decimal" value={item.quantity} onChange={(event) => updateQuantity(item.cheeseId, event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" /></label>
+                <label className="col-start-1 row-start-2 block text-xs font-semibold text-ink sm:col-start-2 sm:row-start-1 sm:text-sm"><span className="mb-1 block">Cantidad (und)</span><input aria-label={`Cantidad de ${item.name}`} type="text" inputMode="numeric" value={item.quantity} onChange={(event) => updateQuantity(item.cheeseId, event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" /></label>
                 <div className="col-start-2 row-start-2 self-end whitespace-nowrap pb-2 text-right sm:col-start-3 sm:row-start-1 sm:self-center sm:pb-0"><p className="text-xs text-slate-500">Subtotal</p><p className="text-sm font-extrabold sm:text-base">{milli ? money.format(lineTotal(item.unitPrice, milli)) : 'Revisa cantidad'}</p></div>
               </div>
             })}

@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const cheeseSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
   description: { type: String, trim: true, maxlength: 500, default: '' },
-  unit: { type: String, enum: ['kg', 'und'], required: true },
+  unit: { type: String, enum: ['und'], required: true, default: 'und' },
   sortOrder: { type: Number, min: 0, max: 100_000, default: 10_000 },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true, strict: 'throw' })

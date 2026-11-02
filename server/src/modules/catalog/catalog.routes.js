@@ -18,7 +18,7 @@ const searchQuery = z.string().trim().max(100).optional().default('')
 const cheeseCreate = z.object({
   name: z.string().trim().min(2).max(100),
   description: z.string().trim().max(500).optional().default(''),
-  unit: z.enum(['kg', 'und']),
+  unit: z.literal('und'),
 }).strict()
 const cheeseUpdate = cheeseCreate.partial().extend({ isActive: z.boolean().optional() }).strict()
 const emailOptional = z.union([z.string().trim().email().max(254), z.literal('')]).optional().default('')
@@ -69,7 +69,8 @@ cheeseRouter.get('/', parse(z.object({ search: searchQuery, status: statusQuery 
     const { search, status } = req.validatedQuery
     const filter = { ...statusFilter(status) }
     if (search) filter.name = { $regex: escapeRegex(search), $options: 'i' }
-    const data = await Cheese.find(filter).sort({ sortOrder: 1, name: 1 }).lean()
+    const data = (await Cheese.find(filter).sort({ sortOrder: 1, name: 1 }).lean())
+      .map((cheese) => ({ ...cheese, unit: 'und' }))
     return res.json({ ok: true, data, error: null })
   } catch (error) { return next(error) }
 })
@@ -88,10 +89,7 @@ cheeseRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(
   try {
     const current = await Cheese.findById(req.validatedParams.id)
     if (!current) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'Queso no encontrado.')
-    if (req.validatedBody.unit && req.validatedBody.unit !== current.unit && await Price.exists({ cheese: current._id })) {
-      return sendError(res, 409, 'UNIT_IN_USE', 'No se puede cambiar la unidad mientras existan precios para este queso.')
-    }
-    const cheese = await Cheese.findByIdAndUpdate(req.validatedParams.id, { $set: req.validatedBody }, { new: true, runValidators: true })
+    const cheese = await Cheese.findByIdAndUpdate(req.validatedParams.id, { $set: { ...req.validatedBody, unit: 'und' } }, { new: true, runValidators: true })
     return res.json({ ok: true, data: cheese, error: null })
   } catch (error) {
     if (isDuplicate(error)) return sendError(res, 409, 'CHEESE_EXISTS', 'Ya existe un queso con ese nombre.')
@@ -175,7 +173,7 @@ async function readPriceMatrix(scope, storeId) {
   const byCheese = new Map(prices.map((price) => [String(price.cheese), price]))
   return cheeses.map((cheese) => {
     const price = byCheese.get(String(cheese._id))
-    return { cheeseId: cheese._id, name: cheese.name, unit: cheese.unit, price: price?.price ?? null, updatedAt: price?.updatedAt ?? null }
+    return { cheeseId: cheese._id, name: cheese.name, unit: 'und', price: price?.price ?? null, updatedAt: price?.updatedAt ?? null }
   })
 }
 

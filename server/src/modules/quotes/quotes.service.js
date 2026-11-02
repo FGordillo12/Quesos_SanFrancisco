@@ -9,23 +9,22 @@ import { quotePdfFilename } from './pdf-filename.js'
 
 const MAX_QUANTITY_MILLI = 1_000_000_000
 
-export function parseQuantity(quantity, unit) {
-  if (typeof quantity !== 'string' || !/^\d{1,7}(?:\.\d{1,3})?$/.test(quantity)) {
-    const error = new Error('La cantidad debe ser un número positivo con máximo 3 decimales.')
+export function parseQuantity(quantity) {
+  if (typeof quantity !== 'string' || !/^\d{1,7}$/.test(quantity)) {
+    const error = new Error('La cantidad debe ser un número entero positivo de unidades.')
     error.status = 400
     error.code = 'INVALID_QUANTITY'
     throw error
   }
-  const [whole, fraction = ''] = quantity.split('.')
-  const milliBig = BigInt(whole) * 1000n + BigInt((fraction + '000').slice(0, 3))
-  if (milliBig < 1n || milliBig > BigInt(MAX_QUANTITY_MILLI) || (unit === 'und' && milliBig % 1000n !== 0n)) {
-    const error = new Error(unit === 'und' ? 'La cantidad de unidades debe ser un entero positivo.' : 'La cantidad está fuera del rango permitido.')
+  const milliBig = BigInt(quantity) * 1000n
+  if (milliBig < 1000n || milliBig > BigInt(MAX_QUANTITY_MILLI)) {
+    const error = new Error('La cantidad de unidades debe ser un entero positivo.')
     error.status = 400
     error.code = 'INVALID_QUANTITY'
     throw error
   }
   const milli = Number(milliBig)
-  const normalized = `${BigInt(whole)}${milli % 1000 === 0 ? '' : `.${String(milli % 1000).padStart(3, '0').replace(/0+$/, '')}`}`
+  const normalized = quantity
   return { milli, normalized }
 }
 
@@ -96,7 +95,7 @@ export async function createQuote({ input, userId }) {
     const basePrice = priceByCheese.get(String(cheeseId))
     const unitPrice = destination.scope === 'general' && requestedUnitPrice != null ? requestedUnitPrice : basePrice
     if (unitPrice == null) fail(400, 'PRICE_NOT_DEFINED', `No hay precio configurado para ${cheese.name} en el destino seleccionado.`)
-    const parsedQuantity = parseQuantity(quantity, cheese.unit)
+    const parsedQuantity = parseQuantity(quantity)
     const lineTotal = calculateLineTotal(unitPrice, parsedQuantity.milli)
     if (lineTotal < 1) fail(400, 'SUBTOTAL_TOO_SMALL', `La cantidad de ${cheese.name} produce un subtotal menor a $1 COP.`)
     return {
@@ -105,7 +104,7 @@ export async function createQuote({ input, userId }) {
       sortOrder: cheese.sortOrder ?? 10_000,
       quantity: parsedQuantity.normalized,
       quantityMilli: parsedQuantity.milli,
-      unit: cheese.unit,
+      unit: 'und',
       unitPrice,
       lineTotal,
     }

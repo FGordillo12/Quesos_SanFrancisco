@@ -6,7 +6,7 @@ import { AlertModal } from '../components/AlertModal'
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const emptyStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
-const emptyCheese = { name: '', description: '', unit: 'kg' }
+const emptyCheese = { name: '', description: '', unit: 'und' }
 const backHomeClass = 'inline-flex cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none'
 
 function CatalogHeader({ title, description, children, onBack }) {
@@ -240,7 +240,7 @@ export function CheesesPage() {
     setEditingId(null); setForm(freshForm); setFormSnapshot(freshForm); setMessage(''); setError(false); setFormOpen(true)
   }
   function edit(cheese) {
-    const nextForm = { name: cheese.name, description: cheese.description || '', unit: cheese.unit }
+    const nextForm = { name: cheese.name, description: cheese.description || '', unit: 'und' }
     setEditingId(cheese._id); setForm(nextForm); setFormSnapshot(nextForm); setMessage(''); setError(false); setFormOpen(true)
   }
   function closeForm() {
@@ -309,7 +309,7 @@ export function CheesesPage() {
         </div>
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando productos…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay productos para mostrar.</p> : <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((cheese) => <article key={cheese._id} className="rounded-xl border border-slate-200 p-4">
-            <div className="flex items-start justify-between gap-2"><div><h2 className="font-bold">{cheese.name}</h2><p className="mt-1 text-sm text-slate-600">{cheese.description || 'Sin descripción'} · {cheese.unit === 'kg' ? 'Kilogramo' : 'Unidad'}</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${cheese.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{cheese.isActive ? 'Activo' : 'Inactivo'}</span></div>
+            <div className="flex items-start justify-between gap-2"><div><h2 className="font-bold">{cheese.name}</h2><p className="mt-1 text-sm text-slate-600">{cheese.description || 'Sin descripción'} · Unidad (und)</p></div><span className={`rounded-full px-2 py-1 text-xs font-bold ${cheese.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{cheese.isActive ? 'Activo' : 'Inactivo'}</span></div>
             {isAdmin && <div className="mt-3 flex gap-2"><button type="button" onClick={() => edit(cheese)} className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50">Editar</button>{cheese.isActive ? <button type="button" onClick={() => deactivate(cheese)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-50">Desactivar</button> : <button type="button" onClick={() => activate(cheese)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Activar</button>}</div>}
           </article>)}
         </div>}
@@ -321,7 +321,7 @@ export function CheesesPage() {
         {isAdmin ? <form onSubmit={save} className="space-y-3">
           <TextField label="Nombre" name="name" value={form.name} onChange={changeField} required maxLength={100} />
           <TextField label="Descripción" name="description" value={form.description} onChange={changeField} maxLength={500} />
-          <SelectField label="Unidad de medida" name="unit" value={form.unit} onChange={changeField}><option value="kg">Kilogramo (kg)</option><option value="und">Unidad (und)</option></SelectField>
+          <Field label="Unidad de medida"><div className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700">Unidad (und)</div></Field>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar queso'}</button></div>
         </form> : <AdminOnlyNote />}
       </section>
