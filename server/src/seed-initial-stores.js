@@ -119,10 +119,10 @@ try {
   }
   await Price.deleteMany({ scope: 'store', store: jrNorte._id, cheese: { $nin: centroCheeseIds } })
 
-  console.log(`Almacenes listos: ${stores.size}. Tarifas iniciales agregadas: ${inserted}; ya existentes y respetadas: ${alreadyConfigured}. Tarifas sincronizadas en JR Norte: ${copiedToNorth}.`)
+  console.log(`Clientes listos: ${stores.size}. Tarifas iniciales agregadas: ${inserted}; ya existentes y respetadas: ${alreadyConfigured}. Tarifas sincronizadas en JR Norte: ${copiedToNorth}.`)
   console.log(`Producto sin precio eliminado de Idemass: ${removed.deletedCount ? 'sí' : 'no había precio previo'}. Los demás precios no indicados permanecen sin definir.`)
 } catch (error) {
-  console.error(`No se pudo cargar la información de los almacenes: ${error.message}`)
+  console.error(`No se pudo cargar la información de los clientes: ${error.message}`)
   process.exitCode = 1
 } finally {
   await mongoose.disconnect()

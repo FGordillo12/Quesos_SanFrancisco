@@ -76,7 +76,7 @@ export function StoresPage() {
     try {
       const { data } = await api.get('/stores', { params: { status, ...(search ? { search } : {}) } })
       setStores(data.data)
-    } catch (requestError) { setError(true); setMessage(getError(requestError, 'No se pudieron cargar los almacenes.')) }
+    } catch (requestError) { setError(true); setMessage(getError(requestError, 'No se pudieron cargar los clientes.')) }
     finally { setLoading(false) }
   }
   useEffect(() => { loadStores() }, [status])
@@ -134,11 +134,11 @@ export function StoresPage() {
     try {
       if (editingId) await api.put(`/stores/${editingId}`, form)
       else await api.post('/stores', form)
-      setMessage(editingId ? 'Almacén actualizado.' : 'Almacén agregado.')
+      setMessage(editingId ? 'Cliente actualizado.' : 'Cliente agregado.')
       setError(false)
       closeForm()
       await loadStores()
-    } catch (requestError) { setError(true); setMessage(getError(requestError, 'No se pudo guardar el almacén.')) }
+    } catch (requestError) { setError(true); setMessage(getError(requestError, 'No se pudo guardar el cliente.')) }
     finally { setSaving(false) }
   }
 
@@ -146,15 +146,15 @@ export function StoresPage() {
     if (!window.confirm(`¿Desactivar ${store.name}? Sus registros se conservarán.`)) return
     try {
       await api.delete(`/stores/${store._id}`)
-      setMessage('Almacén desactivado; sus datos se conservaron.')
+      setMessage('Cliente desactivado; sus datos se conservaron.')
       setError(false)
       await loadStores()
-    } catch (requestError) { setMessage(getError(requestError, 'No se pudo desactivar el almacén.')); setError(true) }
+    } catch (requestError) { setMessage(getError(requestError, 'No se pudo desactivar el cliente.')); setError(true) }
   }
 
   async function activate(store) {
-    try { await api.put(`/stores/${store._id}`, { isActive: true }); setMessage('Almacén activado.'); setError(false); await loadStores() }
-    catch (requestError) { setMessage(getError(requestError, 'No se pudo activar el almacén.')); setError(true) }
+    try { await api.put(`/stores/${store._id}`, { isActive: true }); setMessage('Cliente activado.'); setError(false); await loadStores() }
+    catch (requestError) { setMessage(getError(requestError, 'No se pudo activar el cliente.')); setError(true) }
   }
 
   const filtered = useMemo(() => {
@@ -164,8 +164,8 @@ export function StoresPage() {
   }, [search, stores])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Almacenes" description="Administra los establecimientos registrados y su información de contacto." onBack={handleHomeClick}>
-      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir almacén</button>}
+    <CatalogHeader title="Clientes" description="Administra los clientes registrados y su información de contacto." onBack={handleHomeClick}>
+      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir cliente</button>}
     </CatalogHeader>
     <section className="mx-auto max-w-6xl">
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
@@ -173,7 +173,7 @@ export function StoresPage() {
           <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, NIT, ciudad o contacto" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
-        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando almacenes…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay almacenes para mostrar.</p> : <div className="space-y-3">
+        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando clientes…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay clientes para mostrar.</p> : <div className="space-y-3">
           {filtered.map((store) => <article key={store._id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><h2 className="font-bold">{store.name}</h2><p className="mt-1 text-sm text-slate-600">{store.address} · {store.city}</p><p className="mt-1 text-xs text-slate-500">{store.nit ? `NIT/CC ${store.nit} · ` : ''}{store.phone || 'Sin teléfono'}{store.contactName ? ` · ${store.contactName}` : ''}</p></div>
@@ -187,18 +187,18 @@ export function StoresPage() {
     {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-5" onMouseDown={(event) => { if (event.target === event.currentTarget) requestCloseForm() }}>
       <section role="dialog" aria-modal="true" aria-labelledby="store-form-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
         <div className="mb-5 flex items-start justify-between gap-4">
-          <div><h2 id="store-form-title" className="text-xl font-extrabold">{editingId ? 'Editar almacén' : 'Agregar almacén'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de almacenes.</p></div>
+          <div><h2 id="store-form-title" className="text-xl font-extrabold">{editingId ? 'Editar cliente' : 'Agregar cliente'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de clientes.</p></div>
           <button type="button" onClick={requestCloseForm} aria-label="Cerrar formulario" className="cursor-pointer rounded-lg px-2 py-1 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">×</button>
         </div>
         <form onSubmit={save} className="space-y-3">
-          <TextField label="Nombre del almacén" name="name" value={form.name} onChange={changeField} required maxLength={120} />
+          <TextField label="Nombre del cliente" name="name" value={form.name} onChange={changeField} required maxLength={120} />
           <TextField label="NIT o cédula" name="nit" value={form.nit} onChange={changeField} maxLength={30} />
           <TextField label="Dirección" name="address" value={form.address} onChange={changeField} required maxLength={200} />
           <TextField label="Ciudad" name="city" value={form.city} onChange={changeField} required maxLength={100} />
           <TextField label="Teléfono" name="phone" value={form.phone} onChange={changeField} maxLength={40} />
           <TextField label="Correo" type="email" name="email" value={form.email} onChange={changeField} maxLength={254} />
           <TextField label="Persona de contacto" name="contactName" value={form.contactName} onChange={changeField} maxLength={120} />
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar almacén'}</button></div>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar cliente'}</button></div>
         </form>
       </section>
     </div>}
@@ -352,7 +352,7 @@ export function PricesPage() {
     api.get('/stores', { params: { status: 'active' } }).then(({ data }) => {
       setStores(data.data)
       if (data.data.length) setStoreId((current) => current || data.data[0]._id)
-    }).catch((requestError) => { setError(true); setMessage(getError(requestError, 'No se pudieron cargar los almacenes.')) })
+    }).catch((requestError) => { setError(true); setMessage(getError(requestError, 'No se pudieron cargar los clientes.')) })
   }, [])
 
   async function loadMatrix() {
@@ -442,19 +442,19 @@ export function PricesPage() {
   const storeLabel = useMemo(() => stores.find((store) => store._id === storeId)?.name || '', [stores, storeId])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Precios" description="Configura la tarifa general y los valores particulares por almacén." onBack={() => requestAction({ type: 'home' })} />
+    <CatalogHeader title="Precios" description="Configura la tarifa general y los valores particulares por cliente." onBack={() => requestAction({ type: 'home' })} />
     <section className="mx-auto max-w-6xl space-y-6">
       <div className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField label="Tipo de tarifa" name="scope" value={scope} onChange={(event) => requestAction({ type: 'scope', value: event.target.value })}>
-            <option value="general">Tarifa general · almacenes nuevos</option>
-            <option value="store">Tarifa particular · almacén registrado</option>
+            <option value="general">Tarifa general · clientes nuevos</option>
+            <option value="store">Tarifa particular · cliente registrado</option>
           </SelectField>
-          {scope === 'store' && <SelectField label="Almacén" name="storeId" value={storeId} onChange={(event) => requestAction({ type: 'store', value: event.target.value })}>
-            {stores.length === 0 ? <option value="">No hay almacenes activos</option> : stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}
+          {scope === 'store' && <SelectField label="Cliente" name="storeId" value={storeId} onChange={(event) => requestAction({ type: 'store', value: event.target.value })}>
+            {stores.length === 0 ? <option value="">No hay clientes activos</option> : stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}
           </SelectField>}
         </div>
-        <p className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm leading-6 text-brand-dark">{scope === 'general' ? 'Esta tarifa se aplicará a facturas de almacenes nuevos que no estén en el catálogo. Solo administración puede modificarla.' : `Estos precios se usarán para ${storeLabel || 'el almacén seleccionado'}. Si falta un precio, ese queso no podrá agregarse a la cotización.`}</p>
+        <p className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm leading-6 text-brand-dark">{scope === 'general' ? 'Esta tarifa se aplicará a facturas de clientes nuevos que no estén en el catálogo. Solo administración puede modificarla.' : `Estos precios se usarán para ${storeLabel || 'el cliente seleccionado'}. Si falta un precio, ese queso no podrá agregarse a la cotización.`}</p>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
@@ -472,7 +472,7 @@ export function PricesPage() {
       </div>
 
       <details className="group rounded-2xl bg-white p-5 shadow-card sm:p-6">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"><span><span className="block text-lg font-extrabold">Historial de cambios</span><span className="mt-1 block text-sm font-normal text-slate-600">{scope === 'general' ? 'Tarifa general' : storeLabel || 'Almacén'} · {history.length} registro(s)</span></span><span aria-hidden="true" className="text-xl text-slate-500 transition-transform group-open:rotate-180">⌄</span></summary>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"><span><span className="block text-lg font-extrabold">Historial de cambios</span><span className="mt-1 block text-sm font-normal text-slate-600">{scope === 'general' ? 'Tarifa general' : storeLabel || 'Cliente'} · {history.length} registro(s)</span></span><span aria-hidden="true" className="text-xl text-slate-500 transition-transform group-open:rotate-180">⌄</span></summary>
         {history.length === 0 ? <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-500">Todavía no hay cambios registrados.</p> : <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
           {history.map((item) => <div key={item._id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><span className="font-semibold">{item.cheese?.name || 'Queso'}</span><span className="text-slate-500"> · {item.changedBy?.name || 'Usuario'} · {new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(item.changedAt))}</span></div><p className="font-semibold">{item.oldPrice == null ? 'Nuevo' : money.format(item.oldPrice)} → {money.format(item.newPrice)}</p></div>)}
         </div>}

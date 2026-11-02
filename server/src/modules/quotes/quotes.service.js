@@ -44,7 +44,7 @@ function fail(status, code, message) {
 async function resolveStore(input) {
   if (input.storeMode === 'registered') {
     const store = await Store.findOne({ _id: input.storeId, isActive: true }).lean()
-    if (!store) fail(404, 'STORE_NOT_FOUND', 'El almacén seleccionado no existe o está inactivo.')
+    if (!store) fail(404, 'STORE_NOT_FOUND', 'El cliente seleccionado no existe o está inactivo.')
     return {
       scope: 'store',
       storeId: store._id,
@@ -80,7 +80,7 @@ export async function createQuote({ input, userId }) {
   if (destination.scope === 'store') {
     const excludedCheeses = new Set(destination.excludedCheeses.map(String))
     if (ids.some((id) => excludedCheeses.has(String(id)))) {
-      fail(400, 'CHEESE_NOT_AVAILABLE_AT_STORE', 'Este producto no se maneja en el almacén seleccionado.')
+      fail(400, 'CHEESE_NOT_AVAILABLE_AT_STORE', 'Este producto no se maneja para el cliente seleccionado.')
     }
   }
   const cheeseById = new Map(cheeses.map((cheese) => [String(cheese._id), cheese]))

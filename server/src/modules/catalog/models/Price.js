@@ -11,8 +11,8 @@ const priceSchema = new mongoose.Schema({
 priceSchema.index({ cheese: 1, store: 1 }, { unique: true, partialFilterExpression: { scope: 'store' } })
 priceSchema.index({ cheese: 1 }, { unique: true, partialFilterExpression: { scope: 'general' } })
 priceSchema.pre('validate', function validatePriceScope() {
-  if (this.scope === 'store' && !this.store) this.invalidate('store', 'El precio particular requiere un almacén.')
-  if (this.scope === 'general' && this.store) this.invalidate('store', 'La tarifa general no puede asociarse a un almacén.')
+  if (this.scope === 'store' && !this.store) this.invalidate('store', 'El precio particular requiere un cliente.')
+  if (this.scope === 'general' && this.store) this.invalidate('store', 'La tarifa general no puede asociarse a un cliente.')
 })
 
 export const Price = mongoose.models.Price ?? mongoose.model('Price', priceSchema)

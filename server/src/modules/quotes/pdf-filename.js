@@ -11,7 +11,7 @@ function safeFilenamePart(value, maxLength) {
 }
 
 export function quotePdfFilename(quote) {
-  const storeName = safeFilenamePart(quote?.store?.name, 60) || 'Almacen'
+  const storeName = safeFilenamePart(quote?.store?.name, 60) || 'Cliente'
   const number = safeFilenamePart(quote?.number, 30) || 'Factura'
   return `${storeName}_${number}.pdf`
 }

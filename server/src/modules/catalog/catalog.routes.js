@@ -127,7 +127,7 @@ storeRouter.post('/', requireRole('admin'), parse(storeCreate), async (req, res,
     const store = await Store.create(input)
     return res.status(201).json({ ok: true, data: store, error: null })
   } catch (error) {
-    if (isDuplicate(error)) return sendError(res, 409, 'STORE_EXISTS', 'Ya existe un almacén con ese NIT.')
+    if (isDuplicate(error)) return sendError(res, 409, 'STORE_EXISTS', 'Ya existe un cliente con ese NIT.')
     return next(error)
   }
 })
@@ -138,10 +138,10 @@ storeRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(s
     const update = { $set: input }
     if (input.nit === '') { delete update.$set.nit; update.$unset = { nit: 1 } }
     const store = await Store.findByIdAndUpdate(req.validatedParams.id, update, { new: true, runValidators: true })
-    if (!store) return sendError(res, 404, 'STORE_NOT_FOUND', 'Almacén no encontrado.')
+    if (!store) return sendError(res, 404, 'STORE_NOT_FOUND', 'Cliente no encontrado.')
     return res.json({ ok: true, data: store, error: null })
   } catch (error) {
-    if (isDuplicate(error)) return sendError(res, 409, 'STORE_EXISTS', 'Ya existe un almacén con ese NIT.')
+    if (isDuplicate(error)) return sendError(res, 409, 'STORE_EXISTS', 'Ya existe un cliente con ese NIT.')
     return next(error)
   }
 })
@@ -149,7 +149,7 @@ storeRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(s
 storeRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), async (req, res, next) => {
   try {
     const store = await Store.findByIdAndUpdate(req.validatedParams.id, { $set: { isActive: false } }, { new: true })
-    if (!store) return sendError(res, 404, 'STORE_NOT_FOUND', 'Almacén no encontrado.')
+    if (!store) return sendError(res, 404, 'STORE_NOT_FOUND', 'Cliente no encontrado.')
     return res.json({ ok: true, data: store, error: null })
   } catch (error) { return next(error) }
 })
@@ -159,7 +159,7 @@ async function readPriceMatrix(scope, storeId) {
   if (scope === 'store') {
     const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses').lean()
     if (!store) {
-      const error = new Error('Almacén no encontrado o inactivo.')
+      const error = new Error('Cliente no encontrado o inactivo.')
       error.status = 404
       error.code = 'STORE_NOT_FOUND'
       throw error
@@ -197,13 +197,13 @@ async function savePriceBatch({ scope, storeId = null, updates, userId }) {
   if (scope === 'store') {
     const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses')
     if (!store) {
-      const error = new Error('Almacén no encontrado o inactivo.')
+      const error = new Error('Cliente no encontrado o inactivo.')
       error.status = 404
       error.code = 'STORE_NOT_FOUND'
       throw error
     }
     if (ids.some((id) => store.excludedCheeses.some((excludedId) => String(excludedId) === id))) {
-      const error = new Error('Este producto no se maneja en el almacén seleccionado.')
+      const error = new Error('Este producto no se maneja para el cliente seleccionado.')
       error.status = 400
       error.code = 'CHEESE_NOT_AVAILABLE_AT_STORE'
       throw error

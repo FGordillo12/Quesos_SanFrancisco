@@ -49,7 +49,7 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           <nav aria-label="Módulos" className="hidden flex-wrap gap-1 md:flex">
             <Link className="rounded-lg bg-brand px-3 py-2 text-sm font-bold text-white hover:bg-brand-dark" to="/quote">Crear factura</Link>
-            {isAdmin && <><Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Almacenes</Link>
+            {isAdmin && <><Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/stores">Clientes</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Quesos</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/roles">Roles</Link>
@@ -71,7 +71,7 @@ export function DashboardPage() {
         </div>
         <nav aria-label="Accesos a gestión" className="mt-5 grid gap-3 sm:grid-cols-3 md:hidden">
           <Link className="rounded-xl bg-brand p-4 text-center font-bold text-white shadow-card sm:col-span-3" to="/quote">Crear factura</Link>
-          {isAdmin && <><Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Almacenes</Link>
+          {isAdmin && <><Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/stores">Clientes</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Quesos</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/roles">Roles</Link>

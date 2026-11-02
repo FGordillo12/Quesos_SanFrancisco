@@ -12,8 +12,8 @@ const priceHistorySchema = new mongoose.Schema({
 
 priceHistorySchema.index({ store: 1, cheese: 1, changedAt: -1 })
 priceHistorySchema.pre('validate', function validatePriceHistoryScope() {
-  if (this.scope === 'store' && !this.store) this.invalidate('store', 'El historial particular requiere un almacén.')
-  if (this.scope === 'general' && this.store) this.invalidate('store', 'El historial general no puede asociarse a un almacén.')
+  if (this.scope === 'store' && !this.store) this.invalidate('store', 'El historial particular requiere un cliente.')
+  if (this.scope === 'general' && this.store) this.invalidate('store', 'El historial general no puede asociarse a un cliente.')
 })
 
 export const PriceHistory = mongoose.models.PriceHistory ?? mongoose.model('PriceHistory', priceHistorySchema)

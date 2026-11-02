@@ -65,6 +65,7 @@ export function QuotePage() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [savedQuote, setSavedQuote] = useState(null)
+  const [showPdfConfirm, setShowPdfConfirm] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -77,7 +78,7 @@ export function QuotePage() {
       setCheeses(cheeseResponse.data.data)
       if (storeResponse.data.data.length) setStoreId(storeResponse.data.data[0]._id)
     }).catch((requestError) => {
-      if (alive) setError(requestError.response?.data?.error?.message || 'No se pudieron cargar almacenes y quesos.')
+      if (alive) setError(requestError.response?.data?.error?.message || 'No se pudieron cargar clientes y quesos.')
     }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
@@ -134,7 +135,7 @@ export function QuotePage() {
         return
       }
     } else {
-      if (row?.price == null) { setError(`No hay precio configurado para ${selectedCheese.name} en este almacén.`); return }
+      if (row?.price == null) { setError(`No hay precio configurado para ${selectedCheese.name} en este cliente.`); return }
       price = row.price
     }
     const quantityMilli = toMilli(quantity)
@@ -165,7 +166,7 @@ export function QuotePage() {
     setMessage('')
     setFeedback(null)
     if (mode === 'new' && newStore.name.trim().length < 2) {
-      const message = newStore.name.trim() ? 'El nombre del almacén debe tener al menos 2 caracteres.' : 'No se puede crear la factura ni generar el PDF: falta el nombre del almacén nuevo.'
+      const message = newStore.name.trim() ? 'El nombre del cliente debe tener al menos 2 caracteres.' : 'No se puede crear la factura ni generar el PDF: falta el nombre del cliente nuevo.'
       setError(message)
       setFeedback({ variant: 'error', message })
       document.getElementById('new-store-name')?.focus()
@@ -241,6 +242,7 @@ export function QuotePage() {
     setMessage('')
     setError('')
     setFeedback(null)
+    setShowPdfConfirm(false)
   }
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-primary text-ink" role="status">Cargando el cotizador…</main>
@@ -259,11 +261,22 @@ export function QuotePage() {
       </div>
       {error && <ErrorNotice>{error}</ErrorNotice>}
       <div className="mt-6 grid gap-3">
-        <button type="button" onClick={downloadQuotePdf} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
+        <button type="button" onClick={() => setShowPdfConfirm(true)} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
       </div>
       {savedQuote.driveFile?.id && <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
     </section>
+    {showPdfConfirm && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !pdfBusy && !driveBusy) setShowPdfConfirm(false) }}>
+      <section role="alertdialog" aria-modal="true" aria-labelledby="pdf-confirm-title" aria-describedby="pdf-confirm-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-xl font-bold text-sky-700" aria-hidden="true">?</div>
+        <h2 id="pdf-confirm-title" className="mt-4 text-xl font-extrabold">¿Guardar este PDF?</h2>
+        <p id="pdf-confirm-description" className="mt-2 text-sm leading-6 text-slate-600">Se generará y descargará la factura <strong>{savedQuote.number}</strong>, y también se guardará automáticamente en Google Drive.</p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => setShowPdfConfirm(false)} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50">Cancelar</button>
+          <button type="button" onClick={() => { setShowPdfConfirm(false); downloadQuotePdf() }} className="cursor-pointer rounded-xl bg-brand px-4 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark">Sí, descargar y guardar</button>
+        </div>
+      </section>
+    </div>}
     <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {
       setFeedback(null)
       if (mode === 'new' && !newStore.name.trim()) window.setTimeout(() => document.getElementById('new-store-name')?.focus(), 0)
@@ -272,21 +285,21 @@ export function QuotePage() {
 
   return <main className="min-h-screen bg-primary px-4 py-6 pb-36 text-ink sm:px-8 sm:py-10 sm:pb-36">
     <header className="mx-auto mb-6 flex max-w-6xl items-center justify-between">
-      <div><Link to="/" className={homeButtonClass}>Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Crear factura</h1><p className="mt-1 text-sm text-slate-600">Selecciona un almacén específico o crea esta factura para un almacén nuevo.</p></div>
+      <div><Link to="/" className={homeButtonClass}>Volver al inicio</Link><h1 className="mt-2 text-3xl font-extrabold">Crear factura</h1><p className="mt-1 text-sm text-slate-600">Selecciona un cliente del catálogo o crea una factura para un cliente nuevo.</p></div>
     </header>
     <section className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
           <h2 className="text-lg font-extrabold">Destino de la factura</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button type="button" aria-pressed={mode === 'registered'} onClick={() => setDestination('registered')} className={`rounded-xl border p-4 text-left transition ${mode === 'registered' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Almacén específico</span><span className="mt-1 block text-sm text-slate-600">Elige un almacén del catálogo y se aplicarán sus precios.</span></button>
-            <button type="button" aria-pressed={mode === 'new'} onClick={() => setDestination('new')} className={`rounded-xl border p-4 text-left transition ${mode === 'new' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Nuevo (solo esta factura)</span><span className="mt-1 block text-sm text-slate-600">No se registra en almacenes; puedes ajustar el precio base por producto.</span></button>
+            <button type="button" aria-pressed={mode === 'registered'} onClick={() => setDestination('registered')} className={`rounded-xl border p-4 text-left transition ${mode === 'registered' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Cliente del catálogo</span><span className="mt-1 block text-sm text-slate-600">Elige un cliente registrado y se aplicarán sus precios.</span></button>
+            <button type="button" aria-pressed={mode === 'new'} onClick={() => setDestination('new')} className={`rounded-xl border p-4 text-left transition ${mode === 'new' ? 'border-brand bg-primary ring-2 ring-brand/20' : 'border-slate-200 hover:bg-slate-50'}`}><span className="block font-bold">Nuevo (solo esta factura)</span><span className="mt-1 block text-sm text-slate-600">No se registra en el catálogo de clientes; puedes ajustar el precio base por producto.</span></button>
           </div>
           {mode === 'registered' ? <div className="mt-4">
-            {stores.length ? <Field label="Almacén"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setSelectedCheeseId(''); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay almacenes registrados activos. Puedes crear esta factura con datos de un almacén nuevo.</p>}
+            {stores.length ? <Field label="Cliente"><select value={storeId} onChange={(event) => { setStoreId(event.target.value); setSelectedCheeseId(''); setItems([]); setSavedQuote(null) }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">{stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}</select></Field> : <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">No hay clientes registrados activos. Puedes crear esta factura para un cliente nuevo.</p>}
           </div> : <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Input label="Nombre del almacén" name="name" value={newStore.name} onChange={updateNewStore} required minLength={2} maxLength={120} id="new-store-name" />
-            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark">Este almacén solo aparecerá en esta factura y no se agregará al catálogo. NIT, dirección, ciudad, teléfono y contacto aparecerán vacíos en el PDF.</p>
+            <Input label="Nombre del cliente" name="name" value={newStore.name} onChange={updateNewStore} required minLength={2} maxLength={120} id="new-store-name" />
+            <p className="self-end rounded-xl bg-primary px-4 py-3 text-sm leading-5 text-brand-dark">Este cliente solo aparecerá en esta factura y no se agregará al catálogo. NIT, dirección, ciudad, teléfono y contacto aparecerán vacíos en el PDF.</p>
           </div>}
         </article>
 
@@ -299,7 +312,7 @@ export function QuotePage() {
             <Input label={`Cantidad${selectedCheese ? ` (${selectedCheese.unit})` : ''}`} name="quantity" type="text" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={selectedCheese?.unit === 'und' ? '1' : '1.250'} />
             <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
           </div>}
-          {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del almacén: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este destino' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
+          {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del cliente: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
           {mode === 'new' && <p className="mt-3 text-sm text-slate-600">El precio base se carga automáticamente si existe. Puedes ajustarlo para esta factura; el cambio no modifica el catálogo de precios.</p>}
           {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay tipos de queso activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Quesos</Link>.</p>}
         </article>

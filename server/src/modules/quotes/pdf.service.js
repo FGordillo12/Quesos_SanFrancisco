@@ -7,7 +7,7 @@ const NAVY = '#000000'
 const BRAND = '#000000'
 const PALE = '#FFFFFF'
 const MUTED = '#333333'
-const PAYMENT_DISCLAIMER = 'Esta factura no constituye comprobante de pago ni paz y salvo.'
+const PAYMENT_DISCLAIMER = 'Este documento es un comprobante de venta,  No constituye una factura electrónica ni un documento fiscal válido para efectos tributarios o deducciones de impuestos. ¡Agradecemos mucho su compra!'
 const LOGO_PATH = fileURLToPath(new URL('../../../assets/logo-invoice.png', import.meta.url))
 const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 const dateFormatter = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'America/Bogota' })
@@ -52,8 +52,8 @@ function thermalHeight(quote, company, profile) {
   height += 1 + 4 + 4 + 4 + lineHeight(baseSize) + 3 + lineHeight(baseSize) + 2 + lineHeight(baseSize - 1) + 4 + 4
 
   const storeLines = quote.store.mode === 'new'
-    ? [`Almacén: ${quote.store.name}`, `NIT/CC: ${quote.store.nit || ''}`, `Dirección: ${quote.store.address || ''}`, `Ciudad: ${quote.store.city || ''}`, `Teléfono: ${quote.store.phone || ''}`, `Contacto: ${quote.store.contactName || ''}`]
-    : nonEmpty([`Almacén: ${quote.store.name}`, quote.store.nit && `NIT/CC: ${quote.store.nit}`, quote.store.address, quote.store.city, quote.store.phone && `Tel. ${quote.store.phone}`, quote.store.contactName && `Contacto: ${quote.store.contactName}`])
+    ? [`Cliente: ${quote.store.name}`, `NIT/CC: ${quote.store.nit || ''}`, `Dirección: ${quote.store.address || ''}`, `Ciudad: ${quote.store.city || ''}`, `Teléfono: ${quote.store.phone || ''}`, `Contacto: ${quote.store.contactName || ''}`]
+    : nonEmpty([`Cliente: ${quote.store.name}`, quote.store.nit && `NIT/CC: ${quote.store.nit}`, quote.store.address, quote.store.city, quote.store.phone && `Tel. ${quote.store.phone}`, quote.store.contactName && `Contacto: ${quote.store.contactName}`])
   height += storeLines.reduce((sum, value) => sum + lines(value, baseSize - 1) * lineHeight(baseSize - 1) + 1, 0) + 3 + 4 + 4
 
   for (const item of quote.items) {
@@ -120,7 +120,7 @@ function renderThermal(doc, quote, company, profile) {
 
   const storeDetails = quote.store.mode === 'new'
     ? [
-        `Almacén: ${quote.store.name}`,
+        `Cliente: ${quote.store.name}`,
         `NIT/CC: ${quote.store.nit || ''}`,
         `Dirección: ${quote.store.address || ''}`,
         `Ciudad: ${quote.store.city || ''}`,
@@ -128,7 +128,7 @@ function renderThermal(doc, quote, company, profile) {
         `Contacto: ${quote.store.contactName || ''}`,
       ]
     : nonEmpty([
-        `Almacén: ${quote.store.name}`,
+        `Cliente: ${quote.store.name}`,
         quote.store.nit && `NIT/CC: ${quote.store.nit}`,
         quote.store.address,
         quote.store.city,
