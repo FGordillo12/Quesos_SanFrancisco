@@ -73,7 +73,7 @@ export function QuotePage() {
       setCheeses(cheeseResponse.data.data)
       if (storeResponse.data.data.length) setStoreId(storeResponse.data.data[0]._id)
     }).catch((requestError) => {
-      if (alive) setError(requestError.response?.data?.error?.message || 'No se pudieron cargar clientes y quesos.')
+      if (alive) setError(requestError.response?.data?.error?.message || 'No se pudieron cargar clientes y productos.')
     }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
@@ -120,7 +120,7 @@ export function QuotePage() {
   function addItem() {
     setError('')
     setMessage('')
-    if (!selectedCheese) { setError('Selecciona un tipo de queso.'); return }
+    if (!selectedCheese) { setError('Selecciona un producto.'); return }
     const row = prices.get(selectedCheese._id)
     let price
     if (mode === 'new') {
@@ -299,22 +299,22 @@ export function QuotePage() {
         </article>
 
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
-          <h2 className="text-lg font-extrabold">Agregar queso</h2>
+          <h2 className="text-lg font-extrabold">Agregar producto</h2>
           {loadingPrices && <p className="mt-3 text-sm text-slate-500">Cargando precios…</p>}
           {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
-            <Field label="Tipo de queso"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un queso</option>{availableCheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
+            <Field label="Producto"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un producto</option>{availableCheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
             {mode === 'new' && <Input label="Precio unitario COP" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder="Ej. 25000" />}
             <Input label={`Cantidad${selectedCheese ? ' (und)' : ''}`} name="quantity" type="text" inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="1" />
             <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
           </div>}
           {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del cliente: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
           {mode === 'new' && <p className="mt-3 text-sm text-slate-600">El precio base se carga automáticamente si existe. Puedes ajustarlo para esta factura; el cambio no modifica el catálogo de precios.</p>}
-          {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay tipos de queso activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Quesos</Link>.</p>}
+          {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay productos activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Productos</Link>.</p>}
         </article>
 
         <article className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
           <h2 className="text-lg font-extrabold">Productos de la factura</h2>
-          {items.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega uno o más quesos para calcular el total.</p> : <div className="mt-3 divide-y divide-slate-100">
+          {items.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega uno o más productos para calcular el total.</p> : <div className="mt-3 divide-y divide-slate-100">
             {items.map((item) => {
               const milli = toMilli(item.quantity) || 0
               return <div key={item.cheeseId} className="grid grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_130px_120px_40px] sm:gap-x-3 sm:py-4">

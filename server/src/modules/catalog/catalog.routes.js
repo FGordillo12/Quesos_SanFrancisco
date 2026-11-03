@@ -80,7 +80,7 @@ cheeseRouter.post('/', requireRole('admin'), parse(cheeseCreate), async (req, re
     const cheese = await Cheese.create(req.validatedBody)
     return res.status(201).json({ ok: true, data: cheese, error: null })
   } catch (error) {
-    if (isDuplicate(error)) return sendError(res, 409, 'CHEESE_EXISTS', 'Ya existe un queso con ese nombre.')
+    if (isDuplicate(error)) return sendError(res, 409, 'CHEESE_EXISTS', 'Ya existe un producto con ese nombre.')
     return next(error)
   }
 })
@@ -88,11 +88,11 @@ cheeseRouter.post('/', requireRole('admin'), parse(cheeseCreate), async (req, re
 cheeseRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(cheeseUpdate), async (req, res, next) => {
   try {
     const current = await Cheese.findById(req.validatedParams.id)
-    if (!current) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'Queso no encontrado.')
+    if (!current) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'Producto no encontrado.')
     const cheese = await Cheese.findByIdAndUpdate(req.validatedParams.id, { $set: { ...req.validatedBody, unit: 'und' } }, { new: true, runValidators: true })
     return res.json({ ok: true, data: cheese, error: null })
   } catch (error) {
-    if (isDuplicate(error)) return sendError(res, 409, 'CHEESE_EXISTS', 'Ya existe un queso con ese nombre.')
+    if (isDuplicate(error)) return sendError(res, 409, 'CHEESE_EXISTS', 'Ya existe un producto con ese nombre.')
     return next(error)
   }
 })
@@ -100,7 +100,7 @@ cheeseRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(
 cheeseRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), async (req, res, next) => {
   try {
     const cheese = await Cheese.findByIdAndUpdate(req.validatedParams.id, { $set: { isActive: false } }, { new: true })
-    if (!cheese) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'queso no encontrado.')
+    if (!cheese) return sendError(res, 404, 'CHEESE_NOT_FOUND', 'Producto no encontrado.')
     return res.json({ ok: true, data: cheese, error: null })
   } catch (error) { return next(error) }
 })
@@ -180,14 +180,14 @@ async function readPriceMatrix(scope, storeId) {
 async function savePriceBatch({ scope, storeId = null, updates, userId }) {
   const ids = updates.map((item) => item.cheeseId)
   if (new Set(ids).size !== ids.length) {
-    const error = new Error('No repitas quesos en el mismo guardado.')
+    const error = new Error('No repitas productos en el mismo guardado.')
     error.status = 400
     error.code = 'DUPLICATE_CHEESE'
     throw error
   }
   const activeCheeseCount = await Cheese.countDocuments({ _id: { $in: ids }, isActive: true })
   if (activeCheeseCount !== ids.length) {
-    const error = new Error('Uno o más quesos no existen o están inactivos.')
+    const error = new Error('Uno o más productos no existen o están inactivos.')
     error.status = 400
     error.code = 'INVALID_CHEESE'
     throw error

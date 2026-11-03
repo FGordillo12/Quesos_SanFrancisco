@@ -71,11 +71,11 @@ function quoteDate(value) {
 
 export async function createQuote({ input, userId }) {
   const ids = input.items.map((item) => item.cheeseId)
-  if (new Set(ids).size !== ids.length) fail(400, 'DUPLICATE_CHEESE', 'Agrega cada tipo de queso una sola vez.')
+  if (new Set(ids).size !== ids.length) fail(400, 'DUPLICATE_CHEESE', 'Agrega cada producto una sola vez.')
 
   const destination = await resolveStore(input)
   const cheeses = await Cheese.find({ _id: { $in: ids }, isActive: true }).lean()
-  if (cheeses.length !== ids.length) fail(400, 'INVALID_CHEESE', 'Uno o más quesos no existen o están inactivos.')
+  if (cheeses.length !== ids.length) fail(400, 'INVALID_CHEESE', 'Uno o más productos no existen o están inactivos.')
   if (destination.scope === 'store') {
     const excludedCheeses = new Set(destination.excludedCheeses.map(String))
     if (ids.some((id) => excludedCheeses.has(String(id)))) {

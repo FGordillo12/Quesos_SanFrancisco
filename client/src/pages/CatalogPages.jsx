@@ -229,7 +229,7 @@ export function CheesesPage() {
   async function loadCheeses() {
     setLoading(true)
     try { const { data } = await api.get('/cheeses', { params: { status } }); setCheeses(data.data) }
-    catch (requestError) { setMessage(getError(requestError, 'No se pudieron cargar los quesos.')); setError(true) }
+    catch (requestError) { setMessage(getError(requestError, 'No se pudieron cargar los productos.')); setError(true) }
     finally { setLoading(false) }
   }
   useEffect(() => { loadCheeses() }, [status])
@@ -281,30 +281,30 @@ export function CheesesPage() {
     try {
       if (editingId) await api.put(`/cheeses/${editingId}`, form)
       else await api.post('/cheeses', form)
-      setMessage(editingId ? 'Queso actualizado.' : 'Queso agregado.')
+      setMessage(editingId ? 'Producto actualizado.' : 'Producto agregado.')
       closeForm(); await loadCheeses()
-    } catch (requestError) { setMessage(getError(requestError, 'No se pudo guardar el queso.')); setError(true) }
+    } catch (requestError) { setMessage(getError(requestError, 'No se pudo guardar el producto.')); setError(true) }
     finally { setSaving(false) }
   }
   async function deactivate(cheese) {
     if (!window.confirm(`¿Desactivar ${cheese.name}?`)) return
-    try { await api.delete(`/cheeses/${cheese._id}`); setMessage('Queso desactivado.'); setError(false); await loadCheeses() }
-    catch (requestError) { setMessage(getError(requestError, 'No se pudo desactivar el queso.')); setError(true) }
+    try { await api.delete(`/cheeses/${cheese._id}`); setMessage('Producto desactivado.'); setError(false); await loadCheeses() }
+    catch (requestError) { setMessage(getError(requestError, 'No se pudo desactivar el producto.')); setError(true) }
   }
   async function activate(cheese) {
-    try { await api.put(`/cheeses/${cheese._id}`, { isActive: true }); setMessage('Queso activado.'); setError(false); await loadCheeses() }
-    catch (requestError) { setMessage(getError(requestError, 'No se pudo activar el queso.')); setError(true) }
+    try { await api.put(`/cheeses/${cheese._id}`, { isActive: true }); setMessage('Producto activado.'); setError(false); await loadCheeses() }
+    catch (requestError) { setMessage(getError(requestError, 'No se pudo activar el producto.')); setError(true) }
   }
   const filtered = useMemo(() => cheeses.filter((cheese) => cheese.name.toLocaleLowerCase('es-CO').includes(search.trim().toLocaleLowerCase('es-CO'))), [cheeses, search])
 
   return <main className="min-h-screen bg-primary px-4 py-6 text-ink sm:px-8 sm:py-10">
-    <CatalogHeader title="Tipos de queso" description="Define los productos y sus unidades para las cotizaciones." onBack={handleHomeClick}>
-      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir queso</button>}
+    <CatalogHeader title="Productos" description="Define los productos y sus unidades para las facturas." onBack={handleHomeClick}>
+      {isAdmin && <button type="button" onClick={openAdd} className="cursor-pointer rounded-xl bg-brand px-5 py-3 font-bold text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 active:scale-95">Añadir producto</button>}
     </CatalogHeader>
     <section className="mx-auto max-w-6xl">
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre del queso" />
+          <TextField label="Buscar" name="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre del producto" />
           <SelectField label="Estado" name="status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="all">Todos</option></SelectField>
         </div>
         {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando productos…</p> : filtered.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay productos para mostrar.</p> : <div className="grid gap-3 sm:grid-cols-2">
@@ -317,12 +317,12 @@ export function CheesesPage() {
     </section>
     {formOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-5" onMouseDown={(event) => { if (event.target === event.currentTarget) requestCloseForm() }}>
       <section role="dialog" aria-modal="true" aria-labelledby="cheese-form-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
-        <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="cheese-form-title" className="text-xl font-extrabold">{editingId ? 'Editar queso' : 'Agregar queso'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de productos.</p></div><button type="button" onClick={requestCloseForm} aria-label="Cerrar formulario" className="cursor-pointer rounded-lg px-2 py-1 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">×</button></div>
+        <div className="mb-5 flex items-start justify-between gap-4"><div><h2 id="cheese-form-title" className="text-xl font-extrabold">{editingId ? 'Editar producto' : 'Agregar producto'}</h2><p className="mt-1 text-sm text-slate-600">Los cambios se guardarán en el catálogo de productos.</p></div><button type="button" onClick={requestCloseForm} aria-label="Cerrar formulario" className="cursor-pointer rounded-lg px-2 py-1 text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">×</button></div>
         {isAdmin ? <form onSubmit={save} className="space-y-3">
           <TextField label="Nombre" name="name" value={form.name} onChange={changeField} required maxLength={100} />
           <TextField label="Descripción" name="description" value={form.description} onChange={changeField} maxLength={500} />
           <Field label="Unidad de medida"><div className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700">Unidad (und)</div></Field>
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar queso'}</button></div>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end"><button type="button" onClick={requestCloseForm} disabled={saving} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button><button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-brand px-5 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Agregar producto'}</button></div>
         </form> : <AdminOnlyNote />}
       </section>
     </div>}
@@ -454,12 +454,12 @@ export function PricesPage() {
             {stores.length === 0 ? <option value="">No hay clientes activos</option> : stores.map((store) => <option key={store._id} value={store._id}>{store.name} · {store.city}</option>)}
           </SelectField>}
         </div>
-        <p className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm leading-6 text-brand-dark">{scope === 'general' ? 'Esta tarifa se aplicará a facturas de clientes nuevos que no estén en el catálogo. Solo administración puede modificarla.' : `Estos precios se usarán para ${storeLabel || 'el cliente seleccionado'}. Si falta un precio, ese queso no podrá agregarse a la cotización.`}</p>
+        <p className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm leading-6 text-brand-dark">{scope === 'general' ? 'Esta tarifa se aplicará a facturas de clientes nuevos que no estén en el catálogo. Solo administración puede modificarla.' : `Estos precios se usarán para ${storeLabel || 'el cliente seleccionado'}. Si falta un precio, ese producto no podrá agregarse a la factura.`}</p>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
         <Notice message={message} error={error} onClose={() => { setMessage(''); setError(false) }} />
-        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando matriz de precios…</p> : rows.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega quesos activos para configurar la tarifa.</p> : <div className="space-y-3">
+        {loading ? <p className="py-8 text-center text-sm text-slate-500">Cargando matriz de precios…</p> : rows.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Agrega productos activos para configurar la tarifa.</p> : <div className="space-y-3">
           {rows.map((row) => <article key={row.cheeseId} className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_100px_160px_minmax(190px,220px)] md:items-center">
             <div className="min-w-0"><h2 className="break-words font-bold leading-5">{row.name}</h2><p className="mt-1 text-xs text-slate-500">Producto al que corresponde este precio</p></div>
             <div><span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 md:hidden">Unidad</span><span className="text-sm text-slate-700">{row.unit}</span></div>
@@ -474,7 +474,7 @@ export function PricesPage() {
       <details className="group rounded-2xl bg-white p-5 shadow-card sm:p-6">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden"><span><span className="block text-lg font-extrabold">Historial de cambios</span><span className="mt-1 block text-sm font-normal text-slate-600">{scope === 'general' ? 'Tarifa general' : storeLabel || 'Cliente'} · {history.length} registro(s)</span></span><span aria-hidden="true" className="text-xl text-slate-500 transition-transform group-open:rotate-180">⌄</span></summary>
         {history.length === 0 ? <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-500">Todavía no hay cambios registrados.</p> : <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
-          {history.map((item) => <div key={item._id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><span className="font-semibold">{item.cheese?.name || 'Queso'}</span><span className="text-slate-500"> · {item.changedBy?.name || 'Usuario'} · {new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(item.changedAt))}</span></div><p className="font-semibold">{item.oldPrice == null ? 'Nuevo' : money.format(item.oldPrice)} → {money.format(item.newPrice)}</p></div>)}
+          {history.map((item) => <div key={item._id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><span className="font-semibold">{item.cheese?.name || 'Producto'}</span><span className="text-slate-500"> · {item.changedBy?.name || 'Usuario'} · {new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date(item.changedAt))}</span></div><p className="font-semibold">{item.oldPrice == null ? 'Nuevo' : money.format(item.oldPrice)} → {money.format(item.newPrice)}</p></div>)}
         </div>}
       </details>
     </section>
