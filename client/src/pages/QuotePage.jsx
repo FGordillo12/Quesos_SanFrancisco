@@ -60,7 +60,7 @@ export function QuotePage() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [savedQuote, setSavedQuote] = useState(null)
-  const [showPdfConfirm, setShowPdfConfirm] = useState(false)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -156,7 +156,7 @@ export function QuotePage() {
     setNewStore((current) => ({ ...current, [event.target.name]: event.target.value }))
   }
 
-  async function saveQuote() {
+  function validateQuote() {
     setError('')
     setMessage('')
     setFeedback(null)
@@ -165,22 +165,30 @@ export function QuotePage() {
       setError(message)
       setFeedback({ variant: 'error', message })
       document.getElementById('new-store-name')?.focus()
-      return
+      return false
     }
     if (items.length === 0) {
       const message = 'Agrega al menos un producto antes de generar la factura.'
       setError(message)
       setFeedback({ variant: 'error', message })
-      return
+      return false
     }
     for (const item of items) {
       const quantityMilli = toMilli(item.quantity)
       if (!quantityMilli || lineTotal(item.unitPrice, quantityMilli) < 1) {
         setError(`Revisa la cantidad de ${item.name}.`)
         setFeedback({ variant: 'error', message: `Revisa la cantidad de ${item.name}.` })
-        return
+        return false
       }
     }
+    return true
+  }
+
+  function requestSaveQuote() {
+    if (validateQuote()) setShowSaveConfirm(true)
+  }
+
+  async function saveQuote() {
     setSaving(true)
     const payload = {
       storeMode: mode,
@@ -191,11 +199,22 @@ export function QuotePage() {
     }
     try {
       const { data } = await api.post('/quotes', payload)
-      const quote = data.data
-      setSavedQuote(quote)
-      setFeedback({ variant: 'success', message: `La factura ${quote.number} se guardó correctamente.` })
-      setMessage(`Factura ${quote.number} guardada. Al descargar el PDF se guardará automáticamente en Google Drive. Se eliminará un mes después.`)
+      let quote = data.data
       setItems([])
+      setDriveBusy(true)
+      try {
+        const { data: driveResponse } = await api.post(`/quotes/${quote._id}/drive`)
+        quote = { ...quote, driveFile: driveResponse.data.driveFile }
+        setMessage(`Factura ${quote.number} guardada en Google Drive. Puedes descargar el PDF.`)
+        setFeedback({ variant: 'success', message: `La factura ${quote.number} se guardó correctamente en Google Drive.` })
+      } catch (driveError) {
+        const message = driveError.response?.data?.error?.message || 'La factura se creó, pero no se pudo guardar en Google Drive. Puedes reintentar desde la descarga.'
+        setError(message)
+        setFeedback({ variant: 'error', message })
+      } finally {
+        setDriveBusy(false)
+        setSavedQuote(quote)
+      }
     } catch (requestError) {
       const message = requestError.response?.data?.error?.message || 'No se pudo guardar la factura.'
       setError(message)
@@ -204,12 +223,15 @@ export function QuotePage() {
   }
 
   async function downloadQuotePdf() {
+    if (!savedQuote) return
     setError('')
     setPdfBusy(true)
     try {
-      setDriveBusy(true)
-      const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
-      setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
+      if (!savedQuote.driveFile?.id) {
+        setDriveBusy(true)
+        const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
+        setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
+      }
       const pdfResponse = await api.get(`/quotes/${savedQuote._id}/pdf`, { responseType: 'blob' })
       const { data } = pdfResponse
       const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
@@ -219,8 +241,8 @@ export function QuotePage() {
       const serverFilename = disposition.match(/filename="([^"]+)"/i)?.[1]
       anchor.download = serverFilename || savedQuote.pdfFileName || `${savedQuote.number}.pdf`
       document.body.appendChild(anchor); anchor.click(); anchor.remove()
-      setMessage(`Factura ${savedQuote.number} descargada y guardada en Google Drive.`)
-      setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó y guardó correctamente en Google Drive.` })
+      setMessage(`Factura ${savedQuote.number} descargada.`)
+      setFeedback({ variant: 'success', message: `El PDF de la factura ${savedQuote.number} se descargó correctamente.` })
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (requestError) {
       const message = requestError.response?.data?.error?.message || 'No se pudo generar el PDF.'
@@ -237,7 +259,7 @@ export function QuotePage() {
     setMessage('')
     setError('')
     setFeedback(null)
-    setShowPdfConfirm(false)
+    setShowSaveConfirm(false)
   }
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-primary text-ink" role="status">Cargando el cotizador…</main>
@@ -256,22 +278,11 @@ export function QuotePage() {
       </div>
       {error && <ErrorNotice>{error}</ErrorNotice>}
       <div className="mt-6 grid gap-3">
-        <button type="button" onClick={() => setShowPdfConfirm(true)} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
+        <button type="button" onClick={downloadQuotePdf} disabled={pdfBusy || driveBusy} className="rounded-xl border border-brand px-5 py-3 font-bold text-brand transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50">{driveBusy ? 'Guardando en Drive…' : pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}</button>
       </div>
       {savedQuote.driveFile?.id && <a href={savedQuote.driveFile.webViewLink || `https://drive.google.com/file/d/${savedQuote.driveFile.id}/view`} target="_blank" rel="noreferrer" className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-center font-bold text-emerald-800 hover:bg-emerald-100">PDF guardado en Google Drive · Abrir</a>}
       <button onClick={startNewQuote} className="mt-6 w-full rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark">Crear otra factura</button>
     </section>
-    {showPdfConfirm && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !pdfBusy && !driveBusy) setShowPdfConfirm(false) }}>
-      <section role="alertdialog" aria-modal="true" aria-labelledby="pdf-confirm-title" aria-describedby="pdf-confirm-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-xl font-bold text-sky-700" aria-hidden="true">?</div>
-        <h2 id="pdf-confirm-title" className="mt-4 text-xl font-extrabold">¿Guardar este PDF?</h2>
-        <p id="pdf-confirm-description" className="mt-2 text-sm leading-6 text-slate-600">Se generará y descargará la factura <strong>{savedQuote.number}</strong>, y también se guardará automáticamente en Google Drive.</p>
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={() => setShowPdfConfirm(false)} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50">Cancelar</button>
-          <button type="button" onClick={() => { setShowPdfConfirm(false); downloadQuotePdf() }} className="cursor-pointer rounded-xl bg-brand px-4 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark">Sí, descargar y guardar</button>
-        </div>
-      </section>
-    </div>}
     <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {
       setFeedback(null)
       if (mode === 'new' && !newStore.name.trim()) window.setTimeout(() => document.getElementById('new-store-name')?.focus(), 0)
@@ -343,9 +354,20 @@ export function QuotePage() {
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(11,18,51,0.08)] backdrop-blur sm:px-8">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total estimado</p><p className="text-2xl font-extrabold text-brand-dark">{money.format(previewTotal)}</p><p className="hidden text-xs text-slate-500 sm:block">El servidor vuelve a calcular precios y total al guardar.</p></div>
-        <button type="button" onClick={saveQuote} disabled={!canSave} className="min-w-40 rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar factura'}</button>
+        <button type="button" onClick={requestSaveQuote} disabled={!canSave || driveBusy} className="min-w-40 rounded-xl bg-brand px-5 py-3 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving || driveBusy ? 'Guardando…' : 'Guardar factura'}</button>
       </div>
     </div>
+    {showSaveConfirm && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving && !driveBusy) setShowSaveConfirm(false) }}>
+      <section role="alertdialog" aria-modal="true" aria-labelledby="save-confirm-title" aria-describedby="save-confirm-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-xl font-bold text-sky-700" aria-hidden="true">?</div>
+        <h2 id="save-confirm-title" className="mt-4 text-xl font-extrabold">¿Confirmas guardar esta factura?</h2>
+        <p id="save-confirm-description" className="mt-2 text-sm leading-6 text-slate-600">Se creará la factura para <strong>{mode === 'registered' ? selectedStore?.name : newStore.name}</strong>, se guardará en Google Drive y después podrás descargar el PDF.</p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => setShowSaveConfirm(false)} disabled={saving || driveBusy} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
+          <button type="button" onClick={() => { setShowSaveConfirm(false); saveQuote() }} disabled={saving || driveBusy} className="cursor-pointer rounded-xl bg-brand px-4 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving || driveBusy ? 'Guardando…' : 'Sí, guardar factura'}</button>
+        </div>
+      </section>
+    </div>}
     <AlertModal message={feedback?.message} variant={feedback?.variant} onClose={() => {
       setFeedback(null)
       if (mode === 'new' && !newStore.name.trim()) window.setTimeout(() => document.getElementById('new-store-name')?.focus(), 0)
