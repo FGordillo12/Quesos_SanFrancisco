@@ -44,15 +44,18 @@ export function QuotePage() {
   const [storeId, setStoreId] = useState('')
   const [cheeses, setCheeses] = useState([])
   const [prices, setPrices] = useState(new Map())
+  const [generalPrices, setGeneralPrices] = useState(new Map())
   const [items, setItems] = useState([])
   const [newStore, setNewStore] = useState(emptyNewStore)
   const [selectedCheeseId, setSelectedCheeseId] = useState('')
+  const [addOneTimeProducts, setAddOneTimeProducts] = useState(false)
   const [draftUnitPrice, setDraftUnitPrice] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(currentBogotaDate)
   const [loading, setLoading] = useState(true)
   const [loadingPrices, setLoadingPrices] = useState(false)
+  const [loadingGeneralPrices, setLoadingGeneralPrices] = useState(false)
   const [saving, setSaving] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [driveBusy, setDriveBusy] = useState(false)
@@ -94,18 +97,37 @@ export function QuotePage() {
     return () => { alive = false }
   }, [mode, storeId])
 
+  useEffect(() => {
+    if (mode !== 'registered' || !addOneTimeProducts || generalPrices.size > 0) return undefined
+    let alive = true
+    setLoadingGeneralPrices(true)
+    api.get('/prices/general').then(({ data }) => {
+      if (alive) setGeneralPrices(new Map(data.data.map((row) => [String(row.cheeseId), row])))
+    }).catch((requestError) => {
+      if (alive) setError(requestError.response?.data?.error?.message || 'No se pudo cargar la tarifa general para el producto adicional.')
+    }).finally(() => { if (alive) setLoadingGeneralPrices(false) })
+    return () => { alive = false }
+  }, [mode, addOneTimeProducts, generalPrices.size])
+
   const selectedStore = useMemo(() => stores.find((store) => store._id === storeId), [stores, storeId])
-  const availableCheeses = useMemo(() => mode === 'new'
-    ? cheeses
-    : cheeses.filter((cheese) => {
+  const availableCheeses = useMemo(() => {
+    if (mode === 'new') return cheeses
+    return cheeses.filter((cheese) => {
       const cheeseId = String(cheese._id)
       if (selectedStore?.excludedCheeses?.some((id) => String(id) === cheeseId)) return false
-      if (selectedStore?.productsConfigured) return selectedStore.allowedProducts?.some((id) => String(id) === cheeseId) || false
-      return true
-    }), [cheeses, mode, selectedStore])
+      if (!selectedStore?.productsConfigured) return true
+      const assigned = selectedStore.allowedProducts?.some((id) => String(id) === cheeseId) || false
+      return addOneTimeProducts ? !assigned : assigned
+    })
+  }, [cheeses, mode, selectedStore, addOneTimeProducts])
   const selectedCheese = useMemo(() => availableCheeses.find((cheese) => cheese._id === selectedCheeseId), [availableCheeses, selectedCheeseId])
   const selectedPrice = selectedCheese ? prices.get(selectedCheese._id)?.price : null
-  useEffect(() => { setDraftUnitPrice(selectedPrice == null ? '' : String(selectedPrice)) }, [selectedCheeseId, selectedPrice, mode])
+  const selectedGeneralPrice = selectedCheese ? generalPrices.get(String(selectedCheese._id))?.price : null
+  const usesCustomProductPrice = mode === 'new' || (mode === 'registered' && addOneTimeProducts)
+  useEffect(() => {
+    const price = mode === 'registered' && addOneTimeProducts ? selectedGeneralPrice : selectedPrice
+    setDraftUnitPrice(price == null ? '' : String(price))
+  }, [selectedCheeseId, selectedPrice, selectedGeneralPrice, mode, addOneTimeProducts])
   useEffect(() => {
     if (selectedCheeseId && !availableCheeses.some((cheese) => cheese._id === selectedCheeseId)) setSelectedCheeseId('')
   }, [availableCheeses, selectedCheeseId])
@@ -114,6 +136,7 @@ export function QuotePage() {
 
   function setDestination(nextMode) {
     setMode(nextMode)
+    setAddOneTimeProducts(false)
     setItems([])
     setSelectedCheeseId('')
     setSavedQuote(null)
@@ -128,7 +151,7 @@ export function QuotePage() {
     if (!selectedCheese) { setError('Selecciona un producto.'); return }
     const row = prices.get(selectedCheese._id)
     let price
-    if (mode === 'new') {
+    if (usesCustomProductPrice) {
       price = Number(draftUnitPrice)
       if (!Number.isSafeInteger(price) || price < 1 || price > 1_000_000_000) {
         setError('Ingresa un precio unitario entero en pesos colombianos, mayor que cero.')
@@ -146,7 +169,7 @@ export function QuotePage() {
     if (lineTotal(price, quantityMilli) < 1) { setError('La cantidad produce un subtotal menor a $1 COP.'); return }
     setItems((current) => {
       const existing = current.find((item) => item.cheeseId === selectedCheese._id)
-      if (!existing) return [...current, { cheeseId: selectedCheese._id, name: selectedCheese.name, unit: selectedCheese.unit, unitPrice: price, quantity: fromMilli(quantityMilli) }]
+      if (!existing) return [...current, { cheeseId: selectedCheese._id, name: selectedCheese.name, unit: selectedCheese.unit, unitPrice: price, quantity: fromMilli(quantityMilli), oneTime: mode === 'registered' && addOneTimeProducts }]
       const combined = (toMilli(existing.quantity) || 0) + quantityMilli
       return current.map((item) => item.cheeseId === selectedCheese._id ? { ...item, unitPrice: price, quantity: fromMilli(combined) } : item)
     })
@@ -198,7 +221,7 @@ export function QuotePage() {
     const payload = {
       storeMode: mode,
       ...(mode === 'registered' ? { storeId } : { newStore }),
-      items: items.map(({ cheeseId, quantity: amount, unitPrice }) => ({ cheeseId, quantity: amount, ...(mode === 'new' ? { unitPrice } : {}) })),
+      items: items.map(({ cheeseId, quantity: amount, unitPrice, oneTime }) => ({ cheeseId, quantity: amount, ...(mode === 'new' || oneTime ? { unitPrice } : {}), ...(oneTime ? { oneTime: true } : {}) })),
       notes,
       date,
     }
@@ -317,16 +340,19 @@ export function QuotePage() {
         <article className="rounded-2xl bg-white p-5 shadow-card sm:p-6">
           <h2 className="text-lg font-extrabold">Agregar producto</h2>
           {loadingPrices && <p className="mt-3 text-sm text-slate-500">Cargando precios…</p>}
-          {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
-            <Field label="Producto"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un producto</option>{availableCheeses.map((cheese) => { const row = prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
+          {!loadingPrices && <div className={`mt-4 grid items-end gap-3 ${mode === 'new' || addOneTimeProducts ? 'sm:grid-cols-[minmax(0,1fr)_150px_150px_auto]' : 'sm:grid-cols-[minmax(0,1fr)_150px_auto]'}`}>
+            <Field label="Producto"><select value={selectedCheeseId} onChange={(event) => setSelectedCheeseId(event.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"><option value="">Selecciona un producto</option>{availableCheeses.map((cheese) => { const row = addOneTimeProducts ? generalPrices.get(String(cheese._id)) : prices.get(cheese._id); return <option key={cheese._id} value={cheese._id}>{cheese.name}{row?.price == null ? (mode === 'new' || addOneTimeProducts ? ' · sin precio base' : ' · sin precio') : ''}</option> })}</select></Field>
             {mode === 'new' && <Input label="Precio unitario COP" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder="Ej. 25000" />}
             <Input label={`Cantidad${selectedCheese ? ' (und)' : ''}`} name="quantity" type="text" inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="1" />
-            <button type="button" onClick={addItem} disabled={!selectedCheese || (mode === 'registered' && selectedPrice == null) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
+            {addOneTimeProducts && mode === 'registered' && <Input label="Precio para esta factura (COP)" name="draftUnitPrice" type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={draftUnitPrice} onChange={(event) => setDraftUnitPrice(event.target.value)} placeholder={loadingGeneralPrices ? 'Cargando tarifa…' : 'Ej. 25000'} />}
+            <button type="button" onClick={addItem} disabled={!selectedCheese || (!usesCustomProductPrice && selectedPrice == null) || (addOneTimeProducts && loadingGeneralPrices) || loadingPrices} className="rounded-xl bg-brand px-5 py-2.5 font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">Agregar</button>
           </div>}
-          {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del cliente: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
+          {mode === 'registered' && selectedStore?.productsConfigured && <button type="button" onClick={() => { setAddOneTimeProducts((value) => !value); setSelectedCheeseId(''); setDraftUnitPrice('') }} className="mt-4 cursor-pointer rounded-xl border border-brand px-4 py-2 text-sm font-bold text-brand transition-colors hover:bg-primary">{addOneTimeProducts ? 'Volver a productos asignados' : '＋ Agregar producto solo para esta factura'}</button>}
+          {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">{addOneTimeProducts ? 'Precio de referencia general, editable para esta factura:' : 'Precio unitario del cliente:'} <strong className="text-ink">{addOneTimeProducts ? (selectedGeneralPrice == null ? 'Sin precio general; ingrésalo arriba' : `${money.format(selectedGeneralPrice)} / ${selectedCheese.unit}`) : (selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`)}</strong></p>}
           {mode === 'new' && <p className="mt-3 text-sm text-slate-600">El precio base se carga automáticamente si existe. Puedes ajustarlo para esta factura; el cambio no modifica el catálogo de precios.</p>}
+          {addOneTimeProducts && mode === 'registered' && <p className="mt-2 text-sm text-slate-600">Este producto y su precio se incluirán únicamente en esta factura; no cambiarán los productos asignados al cliente.</p>}
           {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay productos activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Productos</Link>.</p>}
-          {mode === 'registered' && cheeses.length > 0 && availableCheeses.length === 0 && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este cliente no tiene productos asignados. Revisa el módulo Productos por cliente.</p>}
+          {mode === 'registered' && cheeses.length > 0 && availableCheeses.length === 0 && !addOneTimeProducts && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este cliente no tiene productos asignados. Puedes configurar su lista en Productos por cliente o agregar un producto solo para esta factura.</p>}
         </article>
 
         <article className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
@@ -335,7 +361,7 @@ export function QuotePage() {
             {items.map((item) => {
               const milli = toMilli(item.quantity) || 0
               return <div key={item.cheeseId} className="grid grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_130px_120px_40px] sm:gap-x-3 sm:py-4">
-                <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-sm font-semibold leading-5 sm:text-base">{item.name}</p><p className="mt-0.5 text-xs text-slate-500">{money.format(item.unitPrice)} por {item.unit}</p></div>
+                <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-sm font-semibold leading-5 sm:text-base">{item.name}{item.oneTime && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Solo esta factura</span>}</p><p className="mt-0.5 text-xs text-slate-500">{money.format(item.unitPrice)} por {item.unit}</p></div>
                 <button type="button" onClick={() => setItems((current) => current.filter((entry) => entry.cheeseId !== item.cheeseId))} aria-label={`Eliminar ${item.name}`} className="col-start-3 row-start-1 flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 p-0 text-base font-bold leading-none text-rose-700 hover:bg-rose-100 sm:col-start-4 sm:h-auto sm:w-auto sm:rounded-lg sm:px-3 sm:py-2 sm:text-lg">×</button>
                 <label className="col-start-1 row-start-2 block text-xs font-semibold text-ink sm:col-start-2 sm:row-start-1 sm:text-sm"><span className="mb-1 block">Cantidad (und)</span><input aria-label={`Cantidad de ${item.name}`} type="text" inputMode="numeric" value={item.quantity} onChange={(event) => updateQuantity(item.cheeseId, event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" /></label>
                 <div className="col-start-2 row-start-2 self-end whitespace-nowrap pb-2 text-right sm:col-start-3 sm:row-start-1 sm:self-center sm:pb-0"><p className="text-xs text-slate-500">Subtotal</p><p className="text-sm font-extrabold sm:text-base">{milli ? money.format(lineTotal(item.unitPrice, milli)) : 'Revisa cantidad'}</p></div>

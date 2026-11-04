@@ -83,10 +83,14 @@ export async function createQuote({ input, userId }) {
     if (ids.some((id) => excludedCheeses.has(String(id)))) {
       fail(400, 'CHEESE_NOT_AVAILABLE_AT_STORE', 'Este producto no se maneja para el cliente seleccionado.')
     }
-    if (destination.productsConfigured) {
-      const allowedProducts = new Set(destination.allowedProducts.map(String))
-      if (ids.some((id) => !allowedProducts.has(String(id)))) {
-        fail(400, 'PRODUCT_NOT_ASSIGNED', 'Uno o más productos no están asignados a este cliente.')
+    const allowedProducts = new Set(destination.allowedProducts.map(String))
+    for (const item of input.items) {
+      const assigned = !destination.productsConfigured || allowedProducts.has(String(item.cheeseId))
+      if (item.oneTime) {
+        if (!destination.productsConfigured || assigned) fail(400, 'INVALID_ONE_TIME_PRODUCT', 'El producto de uso único debe ser adicional a la lista del cliente.')
+        if (item.unitPrice == null) fail(400, 'PRICE_NOT_DEFINED', 'Indica el precio unitario para el producto agregado solo a esta factura.')
+      } else if (!assigned) {
+        fail(400, 'PRODUCT_NOT_ASSIGNED', 'Uno o más productos no están asignados a este cliente. Usa la opción de agregarlo solo para esta factura.')
       }
     }
   }
@@ -98,10 +102,11 @@ export async function createQuote({ input, userId }) {
   }).lean()
   const priceByCheese = new Map(prices.map((price) => [String(price.cheese), price.price]))
 
-  const items = input.items.map(({ cheeseId, quantity, unitPrice: requestedUnitPrice }) => {
+  const items = input.items.map(({ cheeseId, quantity, unitPrice: requestedUnitPrice, oneTime = false }) => {
     const cheese = cheeseById.get(String(cheeseId))
     const basePrice = priceByCheese.get(String(cheeseId))
-    const unitPrice = destination.scope === 'general' && requestedUnitPrice != null ? requestedUnitPrice : basePrice
+    if (oneTime && destination.scope !== 'store') fail(400, 'INVALID_ONE_TIME_PRODUCT', 'La opción de producto de uso único solo aplica a clientes del catálogo.')
+    const unitPrice = oneTime || destination.scope === 'general' ? (requestedUnitPrice ?? basePrice) : basePrice
     if (unitPrice == null) fail(400, 'PRICE_NOT_DEFINED', `No hay precio configurado para ${cheese.name} en el destino seleccionado.`)
     const parsedQuantity = parseQuantity(quantity)
     const lineTotal = calculateLineTotal(unitPrice, parsedQuantity.milli)
@@ -114,6 +119,7 @@ export async function createQuote({ input, userId }) {
       quantityMilli: parsedQuantity.milli,
       unit: 'und',
       unitPrice,
+      oneTime,
       lineTotal,
     }
   })
