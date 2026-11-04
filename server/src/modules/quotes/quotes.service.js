@@ -48,6 +48,8 @@ async function resolveStore(input) {
       scope: 'store',
       storeId: store._id,
       excludedCheeses: store.excludedCheeses || [],
+      allowedProducts: store.allowedProducts || [],
+      productsConfigured: Boolean(store.productsConfigured),
       snapshot: {
         mode: 'registered', storeId: store._id, name: store.name, nit: store.nit || '',
         address: store.address, city: store.city, phone: store.phone || '', email: store.email || '',
@@ -80,6 +82,12 @@ export async function createQuote({ input, userId }) {
     const excludedCheeses = new Set(destination.excludedCheeses.map(String))
     if (ids.some((id) => excludedCheeses.has(String(id)))) {
       fail(400, 'CHEESE_NOT_AVAILABLE_AT_STORE', 'Este producto no se maneja para el cliente seleccionado.')
+    }
+    if (destination.productsConfigured) {
+      const allowedProducts = new Set(destination.allowedProducts.map(String))
+      if (ids.some((id) => !allowedProducts.has(String(id)))) {
+        fail(400, 'PRODUCT_NOT_ASSIGNED', 'Uno o más productos no están asignados a este cliente.')
+      }
     }
   }
   const cheeseById = new Map(cheeses.map((cheese) => [String(cheese._id), cheese]))

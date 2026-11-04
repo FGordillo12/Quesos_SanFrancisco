@@ -25,10 +25,11 @@ Aplicación web en construcción por fases para cotizaciones y gestión comercia
 - Protección CSRF con cookie de doble envío y cabecera `X-CSRF-Token`, además de validación de origen.
 - Cliente con pantallas de registro, inicio de sesión, verificación, recuperación y cambio de contraseña; estado autenticado en memoria, sin guardar tokens en `localStorage`.
 
-## Fase 4 — Catálogo, almacenes y precios
+## Fase 4 — Catálogo, clientes y precios
 
-- CRUD autenticado de quesos y almacenes; solo `admin` puede crear, editar o desactivar. Las bajas son lógicas para conservar referencias.
-- Matriz de tarifas particulares por queso y almacén, y una tarifa general por queso para facturas de almacenes nuevos. El vendedor consulta, pero no cambia precios.
+- CRUD autenticado de productos y clientes; solo `admin` puede crear, editar o desactivar. Las bajas son lógicas para conservar referencias.
+- Asignación de productos por cliente para limitar la lista disponible al crear una factura. Los clientes sin asignación conservan todos los productos disponibles, menos los excluidos.
+- Matriz de tarifas particulares por producto y cliente, y una tarifa general por producto para facturas de clientes nuevos. El trabajador consulta, pero no cambia precios.
 - Cambios de precios en lote dentro de una transacción MongoDB, con historial de valor anterior/nuevo, usuario y fecha.
 - El cotizador tiene una sola pantalla: selecciona un almacén registrado o permite ingresar los datos de uno nuevo sin guardarlo en el catálogo. Para el segundo caso propone la tarifa general y permite ajustar cada precio solo para esa cotización; esos ajustes no cambian las tarifas guardadas.
 

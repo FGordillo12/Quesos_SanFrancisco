@@ -32,6 +32,7 @@ const storeCreate = z.object({
   contactName: z.string().trim().max(120).optional().default(''),
 }).strict()
 const storeUpdate = storeCreate.partial().extend({ isActive: z.boolean().optional() }).strict()
+const storeProductsUpdate = z.object({ productIds: z.array(objectId).max(200) }).strict()
 const priceUpdate = z.object({
   cheeseId: objectId,
   price: z.number().int().min(1).max(1_000_000_000),
@@ -144,6 +145,23 @@ storeRouter.put('/:id', requireRole('admin'), parse(idParams, 'params'), parse(s
   }
 })
 
+storeRouter.put('/:id/products', requireRole('admin'), parse(idParams, 'params'), parse(storeProductsUpdate), async (req, res, next) => {
+  try {
+    const { productIds } = req.validatedBody
+    if (new Set(productIds).size !== productIds.length) return sendError(res, 400, 'DUPLICATE_PRODUCT', 'No repitas productos en la asignación.')
+    const store = await Store.findOne({ _id: req.validatedParams.id, isActive: true })
+    if (!store) return sendError(res, 404, 'STORE_NOT_FOUND', 'Cliente no encontrado o inactivo.')
+    const activeCount = await Cheese.countDocuments({ _id: { $in: productIds }, isActive: true })
+    if (activeCount !== productIds.length) return sendError(res, 400, 'INVALID_PRODUCT', 'Uno o más productos no existen o están inactivos.')
+    const excluded = new Set((store.excludedCheeses || []).map(String))
+    if (productIds.some((id) => excluded.has(id))) return sendError(res, 400, 'PRODUCT_NOT_AVAILABLE', 'El cliente tiene productos que no se manejan y no pueden asignarse.')
+    store.allowedProducts = productIds
+    store.productsConfigured = true
+    await store.save()
+    return res.json({ ok: true, data: store, error: null })
+  } catch (error) { return next(error) }
+})
+
 storeRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), async (req, res, next) => {
   try {
     const store = await Store.findByIdAndUpdate(req.validatedParams.id, { $set: { isActive: false } }, { new: true })
@@ -154,8 +172,9 @@ storeRouter.delete('/:id', requireRole('admin'), parse(idParams, 'params'), asyn
 
 async function readPriceMatrix(scope, storeId) {
   let excludedCheeseIds = []
+  let allowedProductIds = null
   if (scope === 'store') {
-    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses').lean()
+    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses allowedProducts productsConfigured').lean()
     if (!store) {
       const error = new Error('Cliente no encontrado o inactivo.')
       error.status = 404
@@ -163,9 +182,11 @@ async function readPriceMatrix(scope, storeId) {
       throw error
     }
     excludedCheeseIds = store.excludedCheeses || []
+    if (store.productsConfigured) allowedProductIds = store.allowedProducts || []
   }
   const cheeseFilter = { isActive: true }
-  if (excludedCheeseIds.length) cheeseFilter._id = { $nin: excludedCheeseIds }
+  if (allowedProductIds) cheeseFilter._id = { $in: allowedProductIds, $nin: excludedCheeseIds }
+  else if (excludedCheeseIds.length) cheeseFilter._id = { $nin: excludedCheeseIds }
   const cheeses = await Cheese.find(cheeseFilter).sort({ sortOrder: 1, name: 1 }).lean()
   const filter = { scope, cheese: { $in: cheeses.map((cheese) => cheese._id) } }
   if (scope === 'store') filter.store = storeId
@@ -193,7 +214,7 @@ async function savePriceBatch({ scope, storeId = null, updates, userId }) {
     throw error
   }
   if (scope === 'store') {
-    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses')
+    const store = await Store.findOne({ _id: storeId, isActive: true }).select('excludedCheeses allowedProducts productsConfigured')
     if (!store) {
       const error = new Error('Cliente no encontrado o inactivo.')
       error.status = 404
@@ -204,6 +225,12 @@ async function savePriceBatch({ scope, storeId = null, updates, userId }) {
       const error = new Error('Este producto no se maneja para el cliente seleccionado.')
       error.status = 400
       error.code = 'CHEESE_NOT_AVAILABLE_AT_STORE'
+      throw error
+    }
+    if (store.productsConfigured && ids.some((id) => !store.allowedProducts.some((allowedId) => String(allowedId) === id))) {
+      const error = new Error('Uno o más productos no están asignados a este cliente.')
+      error.status = 400
+      error.code = 'PRODUCT_NOT_ASSIGNED'
       throw error
     }
   }

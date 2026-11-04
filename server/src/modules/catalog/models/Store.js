@@ -9,6 +9,8 @@ const storeSchema = new mongoose.Schema({
   email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
   contactName: { type: String, trim: true, maxlength: 120, default: '' },
   excludedCheeses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cheese' }],
+  allowedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Cheese' }],
+  productsConfigured: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true, strict: 'throw' })
 

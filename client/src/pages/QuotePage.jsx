@@ -97,7 +97,12 @@ export function QuotePage() {
   const selectedStore = useMemo(() => stores.find((store) => store._id === storeId), [stores, storeId])
   const availableCheeses = useMemo(() => mode === 'new'
     ? cheeses
-    : cheeses.filter((cheese) => !selectedStore?.excludedCheeses?.some((id) => String(id) === String(cheese._id))), [cheeses, mode, selectedStore])
+    : cheeses.filter((cheese) => {
+      const cheeseId = String(cheese._id)
+      if (selectedStore?.excludedCheeses?.some((id) => String(id) === cheeseId)) return false
+      if (selectedStore?.productsConfigured) return selectedStore.allowedProducts?.some((id) => String(id) === cheeseId) || false
+      return true
+    }), [cheeses, mode, selectedStore])
   const selectedCheese = useMemo(() => availableCheeses.find((cheese) => cheese._id === selectedCheeseId), [availableCheeses, selectedCheeseId])
   const selectedPrice = selectedCheese ? prices.get(selectedCheese._id)?.price : null
   useEffect(() => { setDraftUnitPrice(selectedPrice == null ? '' : String(selectedPrice)) }, [selectedCheeseId, selectedPrice, mode])
@@ -321,6 +326,7 @@ export function QuotePage() {
           {selectedCheese && mode === 'registered' && <p className="mt-3 text-sm text-slate-600">Precio unitario del cliente: <strong className="text-ink">{selectedPrice == null ? 'Sin definir para este cliente' : `${money.format(selectedPrice)} / ${selectedCheese.unit}`}</strong></p>}
           {mode === 'new' && <p className="mt-3 text-sm text-slate-600">El precio base se carga automáticamente si existe. Puedes ajustarlo para esta factura; el cambio no modifica el catálogo de precios.</p>}
           {cheeses.length === 0 && <p className="mt-3 text-sm text-slate-500">No hay productos activos. Administra el catálogo desde <Link className="font-bold text-brand" to="/cheeses">Productos</Link>.</p>}
+          {mode === 'registered' && cheeses.length > 0 && availableCheeses.length === 0 && <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este cliente no tiene productos asignados. Revisa el módulo Productos por cliente.</p>}
         </article>
 
         <article className="rounded-2xl bg-white p-4 shadow-card sm:p-6">
