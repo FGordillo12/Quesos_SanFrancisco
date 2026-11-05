@@ -52,7 +52,6 @@ if (pickerFields.some(Boolean) && pickerFields.some((value) => !value)) {
   throw new Error('Configure GOOGLE_PICKER_API_KEY y GOOGLE_PICKER_APP_ID juntos.')
 }
 const productionClientUrl = 'https://quesos-san-francisco.vercel.app'
-const productionApiUrl = 'https://quesos-san-francisco-api.vercel.app'
 const configuredClientUrl = new URL(parsed.CLIENT_URL)
 const clientOrigin = parsed.NODE_ENV === 'production' && ['localhost', '127.0.0.1'].includes(configuredClientUrl.hostname)
   ? productionClientUrl
@@ -89,9 +88,9 @@ export const env = Object.freeze({
   googleOAuth: parsed.GOOGLE_OAUTH_CLIENT_ID ? Object.freeze({
     clientId: parsed.GOOGLE_OAUTH_CLIENT_ID,
     clientSecret: parsed.GOOGLE_OAUTH_CLIENT_SECRET,
-    // Keep the deployed OAuth callback stable and independent of Vercel aliases or stale env values.
+    // Return through the frontend's /api rewrite so the OAuth state cookie stays on the same host.
     redirectUri: parsed.NODE_ENV === 'production'
-      ? `${productionApiUrl}/api/drive/oauth/callback`
+      ? `${productionClientUrl}/api/drive/oauth/callback`
       : configuredRedirectUri || 'http://localhost:4000/api/drive/oauth/callback',
     pickerApiKey: parsed.GOOGLE_PICKER_API_KEY || null,
     pickerAppId: parsed.GOOGLE_PICKER_APP_ID || null,
