@@ -58,7 +58,6 @@ const clientOrigin = parsed.NODE_ENV === 'production' && ['localhost', '127.0.0.
   ? productionClientUrl
   : configuredClientUrl.origin
 const configuredRedirectUri = parsed.GOOGLE_OAUTH_REDIRECT_URI
-const redirectUsesLocalhost = configuredRedirectUri && ['localhost', '127.0.0.1'].includes(new URL(configuredRedirectUri).hostname)
 if (parsed.NODE_ENV === 'production') {
   const tlsEnabled = parsed.MONGODB_URI.startsWith('mongodb+srv://') || /[?&]tls=true(?:&|$)/i.test(parsed.MONGODB_URI)
   if (!tlsEnabled) throw new Error('En producción, MONGODB_URI debe usar mongodb+srv o tls=true.')
@@ -90,8 +89,8 @@ export const env = Object.freeze({
   googleOAuth: parsed.GOOGLE_OAUTH_CLIENT_ID ? Object.freeze({
     clientId: parsed.GOOGLE_OAUTH_CLIENT_ID,
     clientSecret: parsed.GOOGLE_OAUTH_CLIENT_SECRET,
-    // Never send a production OAuth flow back to a developer's local machine.
-    redirectUri: parsed.NODE_ENV === 'production' && (!configuredRedirectUri || redirectUsesLocalhost)
+    // Keep the deployed OAuth callback stable and independent of Vercel aliases or stale env values.
+    redirectUri: parsed.NODE_ENV === 'production'
       ? `${productionApiUrl}/api/drive/oauth/callback`
       : configuredRedirectUri || 'http://localhost:4000/api/drive/oauth/callback',
     pickerApiKey: parsed.GOOGLE_PICKER_API_KEY || null,
