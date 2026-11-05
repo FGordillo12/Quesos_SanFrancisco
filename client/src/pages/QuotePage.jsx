@@ -4,6 +4,8 @@ import { api } from '../api'
 import { AlertModal } from '../components/AlertModal'
 
 const money = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+// Temporalmente se puede reactivar desde el entorno del cliente con VITE_CLOUD_SAVE_ENABLED=true.
+const CLOUD_SAVE_ENABLED = import.meta.env.VITE_CLOUD_SAVE_ENABLED === 'true'
 const emptyNewStore = { name: '', nit: '', address: '', city: '', phone: '', email: '', contactName: '' }
 const homeButtonClass = 'inline-flex cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none'
 
@@ -229,6 +231,12 @@ export function QuotePage() {
       const { data } = await api.post('/quotes', payload)
       let quote = data.data
       setItems([])
+      if (!CLOUD_SAVE_ENABLED) {
+        setMessage(`Factura ${quote.number} guardada. Ya puedes descargar el PDF.`)
+        setFeedback({ variant: 'success', message: `La factura ${quote.number} se guardó correctamente. La subida a Google Drive está temporalmente inactiva; descarga el PDF en este dispositivo.` })
+        setSavedQuote(quote)
+        return
+      }
       setDriveBusy(true)
       try {
         const { data: driveResponse } = await api.post(`/quotes/${quote._id}/drive`)
@@ -255,7 +263,7 @@ export function QuotePage() {
     setError('')
     setPdfBusy(true)
     try {
-      if (!savedQuote.driveFile?.id) {
+      if (CLOUD_SAVE_ENABLED && !savedQuote.driveFile?.id) {
         setDriveBusy(true)
         const { data: driveResponse } = await api.post(`/quotes/${savedQuote._id}/drive`)
         setSavedQuote((current) => ({ ...current, driveFile: driveResponse.data.driveFile }))
@@ -301,6 +309,7 @@ export function QuotePage() {
         <p className="mt-3 text-2xl font-extrabold text-brand-dark">{money.format(savedQuote.total)}</p>
         <p className="mt-2 text-sm text-slate-600">{savedQuote.store.name} · {savedQuote.store.city}</p>
       </div>
+      {!CLOUD_SAVE_ENABLED && <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">El guardado en Google Drive está temporalmente inactivo. La factura quedó guardada y puedes descargar el PDF directamente.</p>}
       <div className="mt-6 divide-y divide-slate-100">
         {savedQuote.items.map((item) => <div key={item.cheese} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{item.cheeseName} · {item.quantity} {item.unit}<span className="ml-2 text-xs text-slate-500">{money.format(item.unitPrice)} / {item.unit}</span></span><span className="font-semibold">{money.format(item.lineTotal)}</span></div>)}
       </div>
@@ -393,7 +402,7 @@ export function QuotePage() {
       <section role="alertdialog" aria-modal="true" aria-labelledby="save-confirm-title" aria-describedby="save-confirm-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-xl font-bold text-sky-700" aria-hidden="true">?</div>
         <h2 id="save-confirm-title" className="mt-4 text-xl font-extrabold">¿Confirmas guardar esta factura?</h2>
-        <p id="save-confirm-description" className="mt-2 text-sm leading-6 text-slate-600">Se creará la factura para <strong>{mode === 'registered' ? selectedStore?.name : newStore.name}</strong>, se guardará en Google Drive y después podrás descargar el PDF.</p>
+        <p id="save-confirm-description" className="mt-2 text-sm leading-6 text-slate-600">Se creará la factura para <strong>{mode === 'registered' ? selectedStore?.name : newStore.name}</strong>{CLOUD_SAVE_ENABLED ? ', se guardará en Google Drive y después podrás descargar el PDF.' : ' y después podrás descargar el PDF. El guardado en Google Drive está temporalmente inactivo.'}</p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button type="button" onClick={() => setShowSaveConfirm(false)} disabled={saving || driveBusy} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
           <button type="button" onClick={() => { setShowSaveConfirm(false); saveQuote() }} disabled={saving || driveBusy} className="cursor-pointer rounded-xl bg-brand px-4 py-2.5 font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50">{saving || driveBusy ? 'Guardando…' : 'Sí, guardar factura'}</button>
