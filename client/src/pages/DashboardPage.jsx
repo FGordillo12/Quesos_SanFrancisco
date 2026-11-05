@@ -53,8 +53,7 @@ export function DashboardPage() {
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/client-products">Productos por cliente</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/cheeses">Productos</Link>
             <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/prices">Precios</Link>
-            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/roles">Roles</Link>
-            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/settings/company">Empresa e impresión</Link></>}
+            <Link className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-primary" to="/configuration">Configuración</Link></>}
           </nav>
           <button type="button" onClick={() => setShowLogoutModal(true)} className="shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-rose-700 bg-rose-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 motion-reduce:transform-none motion-reduce:transition-none sm:px-4">Cerrar sesión</button>
         </div>
@@ -76,8 +75,7 @@ export function DashboardPage() {
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/client-products">Productos por cliente</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/cheeses">Productos</Link>
           <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/prices">Precios</Link>
-          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/roles">Roles</Link>
-          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/settings/company">Empresa e impresión</Link></>}
+          <Link className="rounded-xl bg-white p-4 text-center font-bold text-brand shadow-card" to="/configuration">Configuración</Link></>}
         </nav>
       </section>
       {showLogoutModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !logoutBusy) setShowLogoutModal(false) }}>
