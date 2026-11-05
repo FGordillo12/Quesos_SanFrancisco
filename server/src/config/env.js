@@ -51,7 +51,14 @@ const pickerFields = [parsed.GOOGLE_PICKER_API_KEY, parsed.GOOGLE_PICKER_APP_ID]
 if (pickerFields.some(Boolean) && pickerFields.some((value) => !value)) {
   throw new Error('Configure GOOGLE_PICKER_API_KEY y GOOGLE_PICKER_APP_ID juntos.')
 }
-const clientOrigin = new URL(parsed.CLIENT_URL).origin
+const productionClientUrl = 'https://quesos-san-francisco.vercel.app'
+const productionApiUrl = 'https://quesos-san-francisco-api.vercel.app'
+const configuredClientUrl = new URL(parsed.CLIENT_URL)
+const clientOrigin = parsed.NODE_ENV === 'production' && ['localhost', '127.0.0.1'].includes(configuredClientUrl.hostname)
+  ? productionClientUrl
+  : configuredClientUrl.origin
+const configuredRedirectUri = parsed.GOOGLE_OAUTH_REDIRECT_URI
+const redirectUsesLocalhost = configuredRedirectUri && ['localhost', '127.0.0.1'].includes(new URL(configuredRedirectUri).hostname)
 if (parsed.NODE_ENV === 'production') {
   const tlsEnabled = parsed.MONGODB_URI.startsWith('mongodb+srv://') || /[?&]tls=true(?:&|$)/i.test(parsed.MONGODB_URI)
   if (!tlsEnabled) throw new Error('En producción, MONGODB_URI debe usar mongodb+srv o tls=true.')
@@ -83,7 +90,10 @@ export const env = Object.freeze({
   googleOAuth: parsed.GOOGLE_OAUTH_CLIENT_ID ? Object.freeze({
     clientId: parsed.GOOGLE_OAUTH_CLIENT_ID,
     clientSecret: parsed.GOOGLE_OAUTH_CLIENT_SECRET,
-    redirectUri: parsed.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/drive/oauth/callback',
+    // Never send a production OAuth flow back to a developer's local machine.
+    redirectUri: parsed.NODE_ENV === 'production' && (!configuredRedirectUri || redirectUsesLocalhost)
+      ? `${productionApiUrl}/api/drive/oauth/callback`
+      : configuredRedirectUri || 'http://localhost:4000/api/drive/oauth/callback',
     pickerApiKey: parsed.GOOGLE_PICKER_API_KEY || null,
     pickerAppId: parsed.GOOGLE_PICKER_APP_ID || null,
   }) : null,
