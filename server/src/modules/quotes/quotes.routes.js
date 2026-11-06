@@ -1,12 +1,14 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../auth/auth.middleware.js'
-import { createQuote, getQuote, listQuotes } from './quotes.service.js'
+import { createQuote, deleteRecentSale, getQuote, getRecentSale, listRecentSales, listQuotes } from './quotes.service.js'
 import { generateQuotePdf } from './pdf.service.js'
 import { quotePdfFilename } from './pdf-filename.js'
 import { getOrCreateCompanySettings } from '../settings/settings.service.js'
 import { Quote } from './models/Quote.js'
 import { uploadQuotePdf } from './drive.service.js'
+import { deleteQuotePdf } from './drive.service.js'
+import { logger } from '../../lib/logger.js'
 
 export const quotesRouter = Router()
 const objectId = z.string().regex(/^[a-f\d]{24}$/i)
@@ -67,7 +69,10 @@ quotesRouter.use(requireAuth)
 
 quotesRouter.post('/', parse(createQuoteSchema), async (req, res, next) => {
   try {
-    const quote = await createQuote({ input: req.quoteInput, userId: req.authUser._id })
+    const { quote, evictedDriveFiles } = await createQuote({ input: req.quoteInput, userId: req.authUser._id })
+    for (const fileId of evictedDriveFiles) {
+      void deleteQuotePdf(fileId).catch((error) => logger.warn({ code: error.code ?? error.name }, 'No se pudo retirar de Drive el PDF de una factura reemplazada'))
+    }
     return res.status(201).json({ ok: true, data: quote, error: null })
   } catch (error) {
     if (error.status) return sendError(res, error.status, error.code || 'QUOTE_INVALID', error.message)
@@ -79,6 +84,42 @@ quotesRouter.get('/', parse(listQuery, 'query'), async (req, res, next) => {
   try {
     const data = await listQuotes({ user: req.authUser, query: req.quoteInput })
     return res.json({ ok: true, data, error: null })
+  } catch (error) { return next(error) }
+})
+
+quotesRouter.get('/recent', async (req, res, next) => {
+  try {
+    const quotes = await listRecentSales()
+    return res.json({ ok: true, data: { quotes }, error: null })
+  } catch (error) { return next(error) }
+})
+
+quotesRouter.get('/recent/:id/pdf', parse(idParams, 'params'), async (req, res, next) => {
+  try {
+    const quote = await getRecentSale(req.quoteInput.id)
+    if (!quote) return sendError(res, 404, 'QUOTE_NOT_FOUND', 'Factura no encontrada.')
+    const settings = await getOrCreateCompanySettings()
+    const pdf = await generateQuotePdf(quote, settings, settings.printProfile)
+    const filename = quotePdfFilename(quote)
+    const disposition = req.query.disposition === 'inline' ? 'inline' : 'attachment'
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${disposition}; filename="${filename}"`, 'Cache-Control': 'no-store', 'Content-Length': String(pdf.length) })
+    return res.send(pdf)
+  } catch (error) { return next(error) }
+})
+
+quotesRouter.delete('/recent/:id', parse(idParams, 'params'), async (req, res, next) => {
+  try {
+    const quote = await deleteRecentSale(req.quoteInput.id)
+    if (!quote) return sendError(res, 404, 'QUOTE_NOT_FOUND', 'Factura no encontrada.')
+    let driveDeleted = true
+    if (quote.driveFile?.id) {
+      try { await deleteQuotePdf(quote.driveFile.id) }
+      catch (error) {
+        driveDeleted = false
+        logger.warn({ code: error.code ?? error.name }, 'La factura se eliminó de la aplicación, pero no de Google Drive')
+      }
+    }
+    return res.json({ ok: true, data: { deleted: true, driveDeleted }, error: null })
   } catch (error) { return next(error) }
 })
 

@@ -132,6 +132,7 @@ export async function createQuote({ input, userId }) {
 
   const session = await mongoose.startSession()
   let quote
+  let evictedDriveFiles = []
   try {
     await session.withTransaction(async () => {
       const counter = await Counter.findOneAndUpdate(
@@ -152,11 +153,31 @@ export async function createQuote({ input, userId }) {
         createdBy: userId,
       }], { session })
       quote = documents[0]
+      const expired = await Quote.find({})
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(3)
+        .select('_id driveFile.id')
+        .session(session)
+        .lean()
+      evictedDriveFiles = expired.map((item) => item.driveFile?.id).filter(Boolean)
+      if (expired.length) await Quote.deleteMany({ _id: { $in: expired.map((item) => item._id) } }, { session })
     })
   } finally {
     await session.endSession()
   }
-  return quote.toObject()
+  return { quote: quote.toObject(), evictedDriveFiles }
+}
+
+export async function listRecentSales() {
+  return Quote.find({}).sort({ createdAt: -1, _id: -1 }).limit(3).populate('createdBy', 'name').lean()
+}
+
+export async function getRecentSale(id) {
+  return Quote.findById(id).populate('createdBy', 'name').lean()
+}
+
+export async function deleteRecentSale(id) {
+  return Quote.findByIdAndDelete(id).lean()
 }
 
 export async function listQuotes({ user, query }) {

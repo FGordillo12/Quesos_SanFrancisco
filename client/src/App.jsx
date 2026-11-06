@@ -18,6 +18,7 @@ const QuotePage = lazy(() => import('./pages/QuotePage.jsx').then((module) => ({
 const CompanySettingsPage = lazy(() => import('./pages/CompanySettingsPage.jsx').then((module) => ({ default: module.CompanySettingsPage })))
 const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage.jsx'))
 const ProductManagementPage = lazy(() => import('./pages/ProductManagementPage.jsx'))
+const SalesPage = lazy(() => import('./pages/SalesPage.jsx'))
 
 function SignedInRedirect({ children }) {
   const { user, loading } = useAuth()
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/quote" element={<QuotePage />} />
+        <Route path="/sales" element={<SalesPage />} />
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/product-management" element={<ProductManagementPage />} />
           <Route path="/stores" element={<StoresPage />} />
