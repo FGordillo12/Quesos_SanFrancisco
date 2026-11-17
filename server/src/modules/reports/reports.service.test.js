@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildPaymentUpdate, getSeriesUnit, resolveReportRange, summarizeAggregateRows } from './reports.service.js'
+import { buildPaymentUpdate, buildReportMatch, getSeriesUnit, resolveReportRange, summarizeAggregateRows } from './reports.service.js'
 
 test('resume totales y ticket promedio sin resultados', () => {
   assert.deepEqual(summarizeAggregateRows([]), {
@@ -20,6 +20,14 @@ test('marca la fecha de pago al pagar y la limpia al volver a pendiente', () => 
   const paidAt = new Date('2026-11-17T10:00:00Z')
   assert.deepEqual(buildPaymentUpdate('pagado', paidAt), { paymentStatus: 'pagado', paidAt })
   assert.deepEqual(buildPaymentUpdate('pendiente', paidAt), { paymentStatus: 'pendiente', paidAt: null })
+})
+
+test('limita todos los reportes al cliente registrado cuando se selecciona', () => {
+  const range = { start: new Date('2026-11-01T05:00:00Z'), end: new Date('2026-12-01T05:00:00Z') }
+  const match = buildReportMatch(range, 'pagado', '64b000000000000000000123')
+  assert.equal(match['store.storeId'].toString(), '64b000000000000000000123')
+  assert.equal(match.paymentStatus, 'pagado')
+  assert.equal(match.date.$gte, range.start)
 })
 
 test('crea rangos según calendario de Bogotá y unidad para la gráfica', () => {

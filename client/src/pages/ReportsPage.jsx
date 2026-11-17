@@ -41,13 +41,22 @@ function PaymentDonut({ summary }) {
 }
 
 export default function ReportsPage() {
-  const [filters, setFilters] = useState({ periodo: 'todo', estado_pago: 'todos', desde: '', hasta: '' })
+  const [filters, setFilters] = useState({ periodo: 'todo', estado_pago: 'todos', desde: '', hasta: '', cliente: '' })
+  const [clients, setClients] = useState([])
   const [search, setSearch] = useState(''); const [searchInput, setSearchInput] = useState('')
   const [sort, setSort] = useState({ ordenar: 'fecha', direccion: 'desc' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [summary, setSummary] = useState(null); const [series, setSeries] = useState([]); const [rows, setRows] = useState([]); const [pagination, setPagination] = useState({ pagina: 1, paginas: 1, total: 0 })
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [selected, setSelected] = useState([]); const [confirm, setConfirm] = useState(null); const [feedback, setFeedback] = useState(null)
   const filtersQuery = useMemo(() => queryString(filters), [filters])
+
+  useEffect(() => {
+    let active = true
+    api.get('/stores', { params: { status: 'active' } })
+      .then(({ data }) => { if (active) setClients(data.data) })
+      .catch((error) => { if (active) setFeedback({ variant: 'error', message: error.response?.data?.error?.message || 'No se pudo cargar la lista de clientes.' }) })
+    return () => { active = false }
+  }, [])
 
   const load = useCallback(async ({ page = 1, silent = false } = {}) => {
     if (filters.periodo === 'personalizado' && (!filters.desde || !filters.hasta || filters.desde > filters.hasta)) { setLoading(false); return }
@@ -98,12 +107,13 @@ export default function ReportsPage() {
         <button type="button" aria-expanded={filtersOpen} aria-controls="report-extra-filters" onClick={() => setFiltersOpen((open) => !open)} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><span>Filtros</span><span aria-hidden="true" className="text-brand">{filtersOpen ? '−' : '+'}</span></button>
       </div>
       <div className="hidden flex-wrap gap-2 md:flex">{periods.map(([value, label]) => <button key={value} type="button" onClick={() => setPeriod(value)} aria-pressed={filters.periodo === value} className={`cursor-pointer rounded-lg px-3 py-2 text-sm font-bold ${filters.periodo === value ? 'bg-brand text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-primary'}`}>{label}</button>)}</div>
-      <div id="report-extra-filters" className={`${filtersOpen ? 'grid' : 'hidden'} mt-4 gap-3 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_auto]`}>
+      <div id="report-extra-filters" className={`${filtersOpen ? 'grid' : 'hidden'} mt-4 gap-3 md:grid md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]`}>
         {filters.periodo === 'personalizado' && <><label className="text-sm font-semibold">Desde<input aria-label="Fecha desde" type="date" value={filters.desde} onChange={(event) => setFilters((old) => ({ ...old, desde: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3" /></label><label className="text-sm font-semibold">Hasta<input aria-label="Fecha hasta" type="date" value={filters.hasta} onChange={(event) => setFilters((old) => ({ ...old, hasta: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3" /></label></>}
+        <label className="text-sm font-semibold">Cliente registrado<select value={filters.cliente} onChange={(event) => setFilters((old) => ({ ...old, cliente: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3"><option value="">Todos los clientes</option>{clients.map((client) => <option key={client._id} value={client._id}>{client.name}{client.city ? ` · ${client.city}` : ''}</option>)}</select></label>
         <label className="text-sm font-semibold">Estado de pago<select value={filters.estado_pago} onChange={(event) => setFilters((old) => ({ ...old, estado_pago: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3"><option value="todos">Todos</option><option value="pagado">Pagadas</option><option value="pendiente">Pendientes</option></select></label>
         <label className="text-sm font-semibold">Buscar factura o cliente<input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Ej. QSF-000012 o nombre" className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3" /></label>
         <label className="text-sm font-semibold">Ordenar por<select value={sort.ordenar} onChange={(event) => setSort((old) => ({ ...old, ordenar: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3"><option value="fecha">Fecha</option><option value="numero">Número</option><option value="cliente">Cliente</option><option value="total">Total</option><option value="estado">Estado</option></select></label>
-        <div className="flex items-end gap-2"><button type="button" aria-label={`Orden ${sort.direccion === 'desc' ? 'descendente' : 'ascendente'}`} onClick={() => setSort((old) => ({ ...old, direccion: old.direccion === 'desc' ? 'asc' : 'desc' }))} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 hover:bg-white">{sort.direccion === 'desc' ? '↓' : '↑'}</button><button type="button" onClick={() => { setFilters({ periodo: 'todo', estado_pago: 'todos', desde: '', hasta: '' }); setSearchInput(''); setSearch(''); setSort({ ordenar: 'fecha', direccion: 'desc' }) }} className="cursor-pointer whitespace-nowrap rounded-xl border border-rose-300 px-4 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50">Limpiar filtros</button></div>
+        <div className="flex items-end gap-2"><button type="button" aria-label={`Orden ${sort.direccion === 'desc' ? 'descendente' : 'ascendente'}`} onClick={() => setSort((old) => ({ ...old, direccion: old.direccion === 'desc' ? 'asc' : 'desc' }))} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 hover:bg-white">{sort.direccion === 'desc' ? '↓' : '↑'}</button><button type="button" onClick={() => { setFilters({ periodo: 'todo', estado_pago: 'todos', desde: '', hasta: '', cliente: '' }); setSearchInput(''); setSearch(''); setSort({ ordenar: 'fecha', direccion: 'desc' }) }} className="cursor-pointer whitespace-nowrap rounded-xl border border-rose-300 px-4 py-3 text-sm font-bold text-rose-700 hover:bg-rose-50">Limpiar filtros</button></div>
       </div>
     </section>
 

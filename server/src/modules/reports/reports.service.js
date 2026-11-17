@@ -101,8 +101,10 @@ function paymentMatch(estadoPago) {
   return { paymentStatus: estadoPago }
 }
 
-function reportMatch(range, estadoPago) {
-  return { date: { $gte: range.start, $lt: range.end }, ...paymentMatch(estadoPago) }
+export function buildReportMatch(range, estadoPago = 'todos', clienteId) {
+  const match = { date: { $gte: range.start, $lt: range.end }, ...paymentMatch(estadoPago) }
+  if (clienteId) match['store.storeId'] = new mongoose.Types.ObjectId(clienteId)
+  return match
 }
 
 function summaryPipeline(match) {
@@ -137,9 +139,10 @@ export function summarizeAggregateRows(rows = []) {
   }
 }
 
-export async function getReportSummary({ range, estadoPago = 'todos' }) {
-  const currentMatch = reportMatch(range, estadoPago)
+export async function getReportSummary({ range, estadoPago = 'todos', clienteId }) {
+  const currentMatch = buildReportMatch(range, estadoPago, clienteId)
   const previousMatch = { date: { $gte: range.previousStart, $lt: range.previousEnd }, ...paymentMatch(estadoPago) }
+  if (clienteId) previousMatch['store.storeId'] = new mongoose.Types.ObjectId(clienteId)
   const [currentRows, previousRows] = await Promise.all([
     Quote.aggregate(summaryPipeline(currentMatch)),
     Quote.aggregate(summaryPipeline(previousMatch)),
@@ -171,11 +174,11 @@ function buildBucketDates(range, unit) {
   return dates
 }
 
-export async function getSalesSeries({ range, estadoPago = 'todos' }) {
+export async function getSalesSeries({ range, estadoPago = 'todos', clienteId }) {
   const unit = getSeriesUnit(range.periodo)
   const status = { $ifNull: ['$paymentStatus', 'pendiente'] }
   const rows = await Quote.aggregate([
-    { $match: reportMatch(range, estadoPago) },
+    { $match: buildReportMatch(range, estadoPago, clienteId) },
     { $group: {
       _id: { $dateTrunc: { date: '$date', unit, timezone: REPORT_TIME_ZONE } },
       pagado: { $sum: { $cond: [{ $eq: [status, 'pagado'] }, '$total', 0] } },
@@ -193,8 +196,8 @@ export async function getSalesSeries({ range, estadoPago = 'todos' }) {
 
 const sortFields = { fecha: 'date', numero: 'number', cliente: 'store.name', total: 'total', estado: 'paymentStatus' }
 
-export async function listReportInvoices({ range, estadoPago = 'todos', busqueda = '', pagina = 1, limite = 5, ordenar = 'fecha', direccion = 'desc' }) {
-  const match = reportMatch(range, estadoPago)
+export async function listReportInvoices({ range, estadoPago = 'todos', clienteId, busqueda = '', pagina = 1, limite = 5, ordenar = 'fecha', direccion = 'desc' }) {
+  const match = buildReportMatch(range, estadoPago, clienteId)
   if (busqueda) {
     const escaped = busqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     match.$and = [{ $or: [{ number: { $regex: escaped, $options: 'i' } }, { 'store.name': { $regex: escaped, $options: 'i' } }] }]

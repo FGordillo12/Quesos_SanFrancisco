@@ -114,4 +114,4 @@ Endpoints (todos requieren sesión de administrador):
 - `PATCH /api/reportes/facturas/:id/estado-pago` — body `{ "estado_pago": "pagado" }` o `pendiente`; devuelve la factura y resumen recalculado.
 - `PATCH /api/reportes/facturas/estado-pago` — body `{ "ids": ["..."], "estado_pago": "pagado" }`; cambio masivo transaccional (requiere MongoDB replica set, como Atlas).
 
-Todos los reportes usan `America/Bogota`. Períodos aceptados: `todo`, `hoy`, `semana`, `mes`, `anio` y `personalizado` (este último requiere `desde=AAAA-MM-DD&hasta=AAAA-MM-DD`). `estado_pago` acepta `todos`, `pagado` o `pendiente`.
+Todos los reportes usan `America/Bogota`. Períodos aceptados: `todo`, `hoy`, `semana`, `mes`, `anio` y `personalizado` (este último requiere `desde=AAAA-MM-DD&hasta=AAAA-MM-DD`). `estado_pago` acepta `todos`, `pagado` o `pendiente`. Se puede añadir `cliente=<id>` en los endpoints para que resumen, gráfica y facturas se limiten al mismo cliente registrado.
