@@ -18,6 +18,7 @@ import { cheeseRouter, priceRouter, storeRouter } from './modules/catalog/catalo
 import { quotesRouter } from './modules/quotes/quotes.routes.js'
 import { settingsRouter } from './modules/settings/settings.routes.js'
 import { driveRouter } from './modules/drive/drive.routes.js'
+import { reportsRouter } from './modules/reports/reports.routes.js'
 
 export function createApp() {
   const app = express()
@@ -69,6 +70,7 @@ export function createApp() {
   app.use('/api/quotes', quotesRouter)
   app.use('/api/settings', settingsRouter)
   app.use('/api/drive', driveRouter)
+  app.use('/api/reportes', reportsRouter)
   app.use('/api', notFoundHandler)
   app.use(errorHandler)
   return app

@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "seed": "node src/seed.js",
     "seed:initial-stores": "node src/seed-initial-stores.js",
+    "migrate:report-payments": "node src/migrate-report-payments.js",
     "test": "node --test"
   },
   "dependencies": {

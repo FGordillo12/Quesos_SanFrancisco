@@ -37,6 +37,8 @@ const quoteSchema = new mongoose.Schema({
   store: { type: storeSnapshotSchema, required: true },
   items: { type: [quoteItemSchema], required: true, validate: [(items) => items.length > 0 && items.length <= 50, 'La cotización debe tener entre 1 y 50 productos.'] },
   total: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
+  paymentStatus: { type: String, enum: ['pagado', 'pendiente'], default: 'pendiente' },
+  paidAt: { type: Date, default: null },
   notes: { type: String, trim: true, maxlength: 1000, default: '' },
   printProfile: { type: printProfileSnapshotSchema, default: null },
   pdfFileName: { type: String, maxlength: 100, default: '' },
@@ -50,6 +52,7 @@ const quoteSchema = new mongoose.Schema({
 
 quoteSchema.index({ number: 1 }, { unique: true })
 quoteSchema.index({ date: -1, createdBy: 1 })
+quoteSchema.index({ date: -1, paymentStatus: 1 })
 quoteSchema.index({ 'store.storeId': 1, date: -1 })
 quoteSchema.pre('validate', function validateStoreSnapshot() {
   if (this.store?.mode === 'registered' && !this.store.storeId) this.invalidate('store.storeId', 'El cliente registrado requiere una referencia.')
