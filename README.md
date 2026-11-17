@@ -100,16 +100,18 @@ La Fase 7 guarda automáticamente el PDF de una cotización nueva en la carpeta 
 
 ## Reportes y estado de pago
 
-El módulo **Reportes** está disponible para administradores en `/reports`. Las facturas históricas se consideran **pendientes** porque el sistema anterior no guardaba información que confirmara un pago. El estado se almacena como `paymentStatus` (`pagado` / `pendiente`) y `paidAt` (fecha nullable; ambos nombres siguen la convención camelCase del modelo). Marcar una factura como pendiente limpia `paidAt`.
+El módulo **Reportes** está disponible para administradores en `/reports` y abre el historial completo con paginación de cinco facturas por página. El módulo Ventas conserva su vista de las tres más recientes, pero crear otra factura ya no elimina las anteriores. También se desactivó la limpieza mensual automática: las facturas permanecen en MongoDB hasta que un administrador las elimine explícitamente. Las facturas borradas antes de este cambio no se recuperan automáticamente; se necesitaría restaurarlas desde una copia de seguridad si existe.
+
+Las facturas históricas se consideran **pendientes** porque el sistema anterior no guardaba información que confirmara un pago. El estado se almacena como `paymentStatus` (`pagado` / `pendiente`) y `paidAt` (fecha nullable; ambos nombres siguen la convención camelCase del modelo). Marcar una factura como pendiente limpia `paidAt`.
 
 Antes del primer despliegue de esta versión, ejecuta una sola vez `npm run migrate:report-payments` con `MONGODB_URI` configurada y acceso de escritura a MongoDB. La migración es idempotente: solo asigna pendiente a documentos sin estado y crea el índice `{ date: -1, paymentStatus: 1 }`; conserva importes, fecha de factura, productos y cliente. El modelo también declara ese índice para nuevas instalaciones.
 
 Endpoints (todos requieren sesión de administrador):
 
-- `GET /api/reportes/resumen?periodo=mes&estado_pago=todos` — indicadores y comparación con el período anterior equivalente.
+- `GET /api/reportes/resumen?periodo=todo&estado_pago=todos` — indicadores del historial completo; los períodos acotados comparan contra el período anterior equivalente.
 - `GET /api/reportes/ventas-por-periodo?periodo=mes` — serie de ventas pagadas y pendientes.
 - `GET /api/reportes/facturas?periodo=mes&pagina=1&limite=20&busqueda=` — listado paginado, filtro de estado y orden (`ordenar=fecha|numero|cliente|total|estado`, `direccion=asc|desc`).
 - `PATCH /api/reportes/facturas/:id/estado-pago` — body `{ "estado_pago": "pagado" }` o `pendiente`; devuelve la factura y resumen recalculado.
 - `PATCH /api/reportes/facturas/estado-pago` — body `{ "ids": ["..."], "estado_pago": "pagado" }`; cambio masivo transaccional (requiere MongoDB replica set, como Atlas).
 
-Todos los reportes usan `America/Bogota`. Períodos aceptados: `hoy`, `semana`, `mes`, `anio` y `personalizado` (este último requiere `desde=AAAA-MM-DD&hasta=AAAA-MM-DD`). `estado_pago` acepta `todos`, `pagado` o `pendiente`.
+Todos los reportes usan `America/Bogota`. Períodos aceptados: `todo`, `hoy`, `semana`, `mes`, `anio` y `personalizado` (este último requiere `desde=AAAA-MM-DD&hasta=AAAA-MM-DD`). `estado_pago` acepta `todos`, `pagado` o `pendiente`.

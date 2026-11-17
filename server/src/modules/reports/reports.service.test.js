@@ -32,4 +32,8 @@ test('crea rangos según calendario de Bogotá y unidad para la gráfica', () =>
   assert.equal(month.previousEnd.toISOString(), '2026-10-18T05:00:00.000Z')
   assert.equal(getSeriesUnit('hoy'), 'hour')
   assert.equal(getSeriesUnit('anio'), 'month')
+  assert.equal(getSeriesUnit('todo'), 'year')
+  const history = resolveReportRange({ periodo: 'todo', desde: '2025-01-01', now: new Date('2026-11-17T14:00:00Z') })
+  assert.equal(history.start.toISOString(), '2025-01-01T05:00:00.000Z')
+  assert.equal(history.end.toISOString(), '2026-11-18T05:00:00.000Z')
 })

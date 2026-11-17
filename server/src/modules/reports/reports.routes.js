@@ -1,12 +1,12 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth/auth.middleware.js'
-import { getReportSummary, getSalesSeries, listReportInvoices, resolveReportRange, updateInvoicePayment, updateManyInvoicePayments } from './reports.service.js'
+import { getReportSummary, getSalesSeries, listReportInvoices, resolveReportRangeForData, updateInvoicePayment, updateManyInvoicePayments } from './reports.service.js'
 
 export const reportsRouter = Router()
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(Date.parse(`${value}T12:00:00-05:00`)) && new Date(`${value}T12:00:00-05:00`).toISOString().startsWith(value), 'Fecha inválida.')
 const common = {
-  periodo: z.enum(['hoy', 'semana', 'mes', 'anio', 'personalizado']).default('mes'),
+  periodo: z.enum(['todo', 'hoy', 'semana', 'mes', 'anio', 'personalizado']).default('todo'),
   desde: date.optional(), hasta: date.optional(),
   estado_pago: z.enum(['todos', 'pagado', 'pendiente']).default('todos'),
 }
@@ -21,7 +21,7 @@ function validateRange(value, ctx) {
 const querySchema = z.object(common).strict().superRefine(validateRange)
 const listSchema = z.object({ ...common,
   busqueda: z.string().trim().max(100).default(''), pagina: z.coerce.number().int().min(1).default(1),
-  limite: z.coerce.number().int().min(1).max(100).default(20),
+  limite: z.coerce.number().int().min(1).max(5).default(5),
   ordenar: z.enum(['fecha', 'numero', 'cliente', 'total', 'estado']).default('fecha'),
   direccion: z.enum(['asc', 'desc']).default('desc'),
 }).strict().superRefine(validateRange)
@@ -31,22 +31,22 @@ const idSchema = z.string().regex(/^[a-f\d]{24}$/i)
 const idParamsSchema = z.object({ id: idSchema }).strict()
 const sendError = (res, status, code, message) => res.status(status).json({ ok: false, data: null, error: { code, message } })
 function parse(schema, part) { return (req, res, next) => { const result = schema.safeParse(req[part]); if (!result.success) return sendError(res, 400, 'VALIDATION_ERROR', result.error.issues[0]?.message || 'Revisa los filtros ingresados.'); req.reportInput = result.data; next() } }
-function rangeFrom(input) { return resolveReportRange(input) }
+function rangeFrom(input) { return resolveReportRangeForData(input) }
 
 reportsRouter.use(requireAuth, requireRole('admin'))
 
 reportsRouter.get('/resumen', parse(querySchema, 'query'), async (req, res, next) => {
-  try { const input = req.reportInput; const range = rangeFrom(input); const data = await getReportSummary({ range, estadoPago: input.estado_pago }); return res.json({ ok: true, data: { ...data, rango: range }, error: null }) }
+  try { const input = req.reportInput; const range = await rangeFrom(input); const data = await getReportSummary({ range, estadoPago: input.estado_pago }); return res.json({ ok: true, data: { ...data, rango: range }, error: null }) }
   catch (error) { return next(error) }
 })
 
 reportsRouter.get('/ventas-por-periodo', parse(querySchema, 'query'), async (req, res, next) => {
-  try { const input = req.reportInput; const range = rangeFrom(input); const serie = await getSalesSeries({ range, estadoPago: input.estado_pago }); return res.json({ ok: true, data: { serie, unidad: input.periodo === 'hoy' ? 'hora' : input.periodo === 'anio' ? 'mes' : 'día', rango: range }, error: null }) }
+  try { const input = req.reportInput; const range = await rangeFrom(input); const serie = await getSalesSeries({ range, estadoPago: input.estado_pago }); return res.json({ ok: true, data: { serie, unidad: input.periodo === 'hoy' ? 'hora' : input.periodo === 'anio' ? 'mes' : input.periodo === 'todo' ? 'año' : 'día', rango: range }, error: null }) }
   catch (error) { return next(error) }
 })
 
 reportsRouter.get('/facturas', parse(listSchema, 'query'), async (req, res, next) => {
-  try { const input = req.reportInput; const range = rangeFrom(input); const data = await listReportInvoices({ range, estadoPago: input.estado_pago, busqueda: input.busqueda, pagina: input.pagina, limite: input.limite, ordenar: input.ordenar, direccion: input.direccion }); return res.json({ ok: true, data, error: null }) }
+  try { const input = req.reportInput; const range = await rangeFrom(input); const data = await listReportInvoices({ range, estadoPago: input.estado_pago, busqueda: input.busqueda, pagina: input.pagina, limite: input.limite, ordenar: input.ordenar, direccion: input.direccion }); return res.json({ ok: true, data, error: null }) }
   catch (error) { return next(error) }
 })
 
@@ -62,8 +62,8 @@ reportsRouter.patch('/facturas/:id/estado-pago', parse(idParamsSchema, 'params')
     const factura = await updateInvoicePayment({ id: req.reportInput.id, estadoPago: body.data.estado_pago })
     if (!factura) return sendError(res, 404, 'INVOICE_NOT_FOUND', 'Factura no encontrada.')
     const filters = querySchema.safeParse(req.query)
-    const input = filters.success ? filters.data : { periodo: 'mes', estado_pago: 'todos' }
-    const resumen = await getReportSummary({ range: rangeFrom(input), estadoPago: input.estado_pago })
+    const input = filters.success ? filters.data : { periodo: 'todo', estado_pago: 'todos' }
+    const resumen = await getReportSummary({ range: await rangeFrom(input), estadoPago: input.estado_pago })
     return res.json({ ok: true, data: { factura, resumen }, error: null })
   } catch (error) { return next(error) }
 })

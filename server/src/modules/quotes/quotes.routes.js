@@ -69,10 +69,7 @@ quotesRouter.use(requireAuth)
 
 quotesRouter.post('/', parse(createQuoteSchema), async (req, res, next) => {
   try {
-    const { quote, evictedDriveFiles } = await createQuote({ input: req.quoteInput, userId: req.authUser._id })
-    for (const fileId of evictedDriveFiles) {
-      void deleteQuotePdf(fileId).catch((error) => logger.warn({ code: error.code ?? error.name }, 'No se pudo retirar de Drive el PDF de una factura reemplazada'))
-    }
+    const { quote } = await createQuote({ input: req.quoteInput, userId: req.authUser._id })
     return res.status(201).json({ ok: true, data: quote, error: null })
   } catch (error) {
     if (error.status) return sendError(res, error.status, error.code || 'QUOTE_INVALID', error.message)

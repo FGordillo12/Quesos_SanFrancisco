@@ -32,7 +32,12 @@ export function resolveReportRange({ periodo = 'mes', desde, hasta, now = new Da
   let previousStart
   let previousEnd
 
-  if (periodo === 'hoy') {
+  if (periodo === 'todo') {
+    start = desde || '2000-01-01'
+    end = addDays(today, 1)
+    previousStart = start
+    previousEnd = start
+  } else if (periodo === 'hoy') {
     start = today
     end = addDays(start, 1)
     previousStart = addDays(start, -1)
@@ -75,8 +80,15 @@ export function resolveReportRange({ periodo = 'mes', desde, hasta, now = new Da
   }
 }
 
+export async function resolveReportRangeForData(input) {
+  if (input.periodo !== 'todo') return resolveReportRange(input)
+  const firstInvoice = await Quote.findOne({}).sort({ date: 1 }).select('date').lean()
+  const start = startOfYear(firstInvoice ? dateInBogota(firstInvoice.date) : dateInBogota(new Date()))
+  return resolveReportRange({ ...input, desde: start })
+}
+
 export function getSeriesUnit(periodo) {
-  return periodo === 'hoy' ? 'hour' : periodo === 'anio' ? 'month' : 'day'
+  return periodo === 'hoy' ? 'hour' : periodo === 'anio' ? 'month' : periodo === 'todo' ? 'year' : 'day'
 }
 
 export function buildPaymentUpdate(estadoPago, paidAt = new Date()) {
@@ -134,7 +146,7 @@ export async function getReportSummary({ range, estadoPago = 'todos' }) {
   ])
   const current = summarizeAggregateRows(currentRows)
   const previous = summarizeAggregateRows(previousRows)
-  const variacionPorcentual = previous.totalVendido === 0
+  const variacionPorcentual = range.periodo === 'todo' ? null : previous.totalVendido === 0
     ? current.totalVendido === 0 ? 0 : 100
     : Number(((current.totalVendido - previous.totalVendido) / previous.totalVendido * 100).toFixed(1))
   return { ...current, variacionPorcentual, periodoAnterior: previous.totalVendido }
@@ -147,7 +159,11 @@ function buildBucketDates(range, unit) {
     dates.push(cursor)
     if (unit === 'hour') cursor = new Date(cursor.getTime() + 3_600_000)
     else if (unit === 'day') cursor = new Date(cursor.getTime() + DAY_MS)
-    else {
+    else if (unit === 'year') {
+      const localDate = dateInBogota(cursor)
+      const nextYear = `${Number(localDate.slice(0, 4)) + 1}-01-01`
+      cursor = atBogotaMidnight(nextYear)
+    } else {
       const localDate = dateInBogota(cursor)
       cursor = atBogotaMidnight(addMonths(startOfMonth(localDate), 1))
     }
@@ -177,7 +193,7 @@ export async function getSalesSeries({ range, estadoPago = 'todos' }) {
 
 const sortFields = { fecha: 'date', numero: 'number', cliente: 'store.name', total: 'total', estado: 'paymentStatus' }
 
-export async function listReportInvoices({ range, estadoPago = 'todos', busqueda = '', pagina = 1, limite = 20, ordenar = 'fecha', direccion = 'desc' }) {
+export async function listReportInvoices({ range, estadoPago = 'todos', busqueda = '', pagina = 1, limite = 5, ordenar = 'fecha', direccion = 'desc' }) {
   const match = reportMatch(range, estadoPago)
   if (busqueda) {
     const escaped = busqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

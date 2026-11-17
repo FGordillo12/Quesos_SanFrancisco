@@ -86,7 +86,7 @@ export default function SalesPage() {
         <button type="button" onClick={() => void loadQuotes({ silent: true })} disabled={refreshing} className="cursor-pointer rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">{refreshing ? 'Actualizando…' : 'Actualizar'}</button>
       </div>
       <h1 className="mt-5 text-3xl font-extrabold">Ventas recientes</h1>
-      <p className="mt-2 text-sm leading-6 text-slate-600">Consulta las tres facturas más recientes creadas por cualquier cuenta. Al crear una cuarta, la más antigua se retira automáticamente del sistema.</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">Consulta aquí las tres facturas más recientes. El historial completo queda disponible en el módulo Reportes.</p>
       {loading ? <p className="mt-8 rounded-xl bg-primary p-5 text-center text-sm text-slate-600" role="status">Cargando ventas…</p> : quotes.length === 0 ? <p className="mt-8 rounded-xl bg-primary p-5 text-center text-sm text-slate-600">Todavía no hay facturas registradas.</p> : <div className="mt-6 space-y-4">
         {quotes.map((quote) => <article key={quote._id} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
