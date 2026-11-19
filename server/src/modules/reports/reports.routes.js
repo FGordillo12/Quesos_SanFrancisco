@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth, requireRole } from '../auth/auth.middleware.js'
-import { getReportSummary, getSalesSeries, listReportInvoices, resolveReportRangeForData, updateInvoicePayment, updateManyInvoicePayments } from './reports.service.js'
+import { deleteReportInvoice, getReportSummary, getSalesSeries, listReportInvoices, resolveReportRangeForData, updateInvoicePayment, updateManyInvoicePayments } from './reports.service.js'
 
 export const reportsRouter = Router()
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(Date.parse(`${value}T12:00:00-05:00`)) && new Date(`${value}T12:00:00-05:00`).toISOString().startsWith(value), 'Fecha inválida.')
@@ -49,6 +49,14 @@ reportsRouter.get('/ventas-por-periodo', parse(querySchema, 'query'), async (req
 reportsRouter.get('/facturas', parse(listSchema, 'query'), async (req, res, next) => {
   try { const input = req.reportInput; const range = await rangeFrom(input); const data = await listReportInvoices({ range, estadoPago: input.estado_pago, clienteId: input.cliente, busqueda: input.busqueda, pagina: input.pagina, limite: input.limite, ordenar: input.ordenar, direccion: input.direccion }); return res.json({ ok: true, data, error: null }) }
   catch (error) { return next(error) }
+})
+
+reportsRouter.delete('/facturas/:id', parse(idParamsSchema, 'params'), async (req, res, next) => {
+  try {
+    const data = await deleteReportInvoice(req.reportInput.id)
+    if (!data) return sendError(res, 404, 'INVOICE_NOT_FOUND', 'Factura no encontrada.')
+    return res.json({ ok: true, data, error: null })
+  } catch (error) { return next(error) }
 })
 
 reportsRouter.patch('/facturas/estado-pago', parse(massSchema, 'body'), async (req, res, next) => {

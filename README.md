@@ -110,7 +110,8 @@ Endpoints (todos requieren sesión de administrador):
 
 - `GET /api/reportes/resumen?periodo=todo&estado_pago=todos` — indicadores del historial completo; los períodos acotados comparan contra el período anterior equivalente.
 - `GET /api/reportes/ventas-por-periodo?periodo=mes` — serie de ventas pagadas y pendientes.
-- `GET /api/reportes/facturas?periodo=mes&pagina=1&limite=20&busqueda=` — listado paginado, filtro de estado y orden (`ordenar=fecha|numero|cliente|total|estado`, `direccion=asc|desc`).
+- `GET /api/reportes/facturas?periodo=mes&pagina=1&limite=5&busqueda=` — listado paginado (máximo cinco), filtro de estado y orden (`ordenar=fecha|numero|cliente|total|estado`, `direccion=asc|desc`).
+- `DELETE /api/reportes/facturas/:id` — elimina una factura; deja de sumar en Reportes e intenta retirar su PDF de Drive.
 - `PATCH /api/reportes/facturas/:id/estado-pago` — body `{ "estado_pago": "pagado" }` o `pendiente`; devuelve la factura y resumen recalculado.
 - `PATCH /api/reportes/facturas/estado-pago` — body `{ "ids": ["..."], "estado_pago": "pagado" }`; cambio masivo transaccional (requiere MongoDB replica set, como Atlas).
 

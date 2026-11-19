@@ -1,5 +1,7 @@
 import mongoose from 'mongoose'
+import { logger } from '../../lib/logger.js'
 import { Quote } from '../quotes/models/Quote.js'
+import { deleteQuotePdf } from '../quotes/drive.service.js'
 
 const REPORT_TIME_ZONE = 'America/Bogota'
 const DAY_MS = 86_400_000
@@ -260,6 +262,20 @@ export async function updateManyInvoicePayments({ ids, estadoPago }) {
     })
   } finally { await session.endSession() }
   return updated
+}
+
+export async function deleteReportInvoice(id) {
+  const invoice = await Quote.findByIdAndDelete(id).lean()
+  if (!invoice) return null
+  let driveDeleted = true
+  if (invoice.driveFile?.id) {
+    try { await deleteQuotePdf(invoice.driveFile.id) }
+    catch (error) {
+      driveDeleted = false
+      logger.warn({ code: error.code ?? error.name }, 'La factura se eliminó de Reportes, pero no de Google Drive')
+    }
+  }
+  return { deleted: true, driveDeleted }
 }
 
 export function toReportRangeDates(range) {
